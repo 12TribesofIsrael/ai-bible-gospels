@@ -1,0 +1,29 @@
+# JSON2Video Templates
+
+## Current Production Template
+
+**File:** `JSON2Video-Template-v7-Phase1_no_card.json`
+**Template ID:** `h5yD4ZbxhCPNFQ2WoVUs`
+**Status:** ✓ Production (proven, tested, stable)
+
+### What It Does
+- 20 biblical scenes with ElevenLabs narration
+- Variable Ken Burns motion (zoom-in, zoom-out, ken-burns, pan-right, pan-left)
+- HD 1920×1080 output
+- ~8–13 minute final video
+
+### How to Use
+1. Update this file in JSON2Video dashboard under Templates
+2. Configure the template ID in n8n workflow (if needed)
+3. Run renders
+
+### DO NOT MODIFY
+This template is stable and proven. If you need changes, create a new test template instead. See `archive/ARCHIVE_README.md` for why.
+
+## Old Templates
+
+All old/broken templates have been moved to `archive/`. Do not use them.
+
+## Source Baseline
+
+The structure of this template is copied from `archive/references/v7-working-baseline/h5.json`, which is the proven working baseline from the last successful render (March 7, 18:42).

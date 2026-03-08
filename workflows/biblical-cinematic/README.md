@@ -1,9 +1,9 @@
 # Biblical Cinematic Video Workflow
 
-Generates professional 12–20 minute biblical cinematic videos from KJV scripture text.
+Generates professional 8–13 minute biblical cinematic videos from KJV scripture text.
 A web app handles text cleaning and review, then automatically triggers the n8n pipeline.
 
-**Current version: v6.0.2** (stable, production confirmed working)
+**Current version: v7.2** (stable, production, field-name-anchored JSON parsing)
 
 ---
 
@@ -24,7 +24,8 @@ Browser (http://localhost:8000)
   → Download final MP4
 ```
 
-**Cost per video:** ~$1.27 — Perplexity $0.15 + ElevenLabs $0.50–$2.50 + JSON2Video $1.00
+**Cost per video:** ~$1.32 — Perplexity $0.15 + ElevenLabs $0.65 + JSON2Video $0.52
+**Render time:** 8–13 minutes (Perplexity + ElevenLabs + JSON2Video)
 
 ---
 
