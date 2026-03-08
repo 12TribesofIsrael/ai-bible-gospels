@@ -12,10 +12,9 @@
     "scene1_imagePrompt": "{{scene1_imagePrompt}}",
     "scene1_animation": "{{scene1_animation}}",
     "scene1_motionType": "{{scene1_motionType}}",
-    "scene1_zoomStart": "{{scene1_zoomStart}}",
-    "scene1_zoomEnd": "{{scene1_zoomEnd}}",
-    "scene1_panStart": "{{scene1_panStart}}",
-    "scene1_panEnd": "{{scene1_panEnd}}",
+    "scene1_zoom": "{{scene1_zoom}}",
+    "scene1_pan": "{{scene1_pan}}",
+    "scene1_panDistance": "{{scene1_panDistance}}",
     "scene1_animationDuration": "{{scene1_animationDuration}}",
     "scene1_easing": "{{scene1_easing}}",
     "scene2_overlaidText": "{{scene2_overlaidText}}",
@@ -23,10 +22,9 @@
     "scene2_imagePrompt": "{{scene2_imagePrompt}}",
     "scene2_animation": "{{scene2_animation}}",
     "scene2_motionType": "{{scene2_motionType}}",
-    "scene2_zoomStart": "{{scene2_zoomStart}}",
-    "scene2_zoomEnd": "{{scene2_zoomEnd}}",
-    "scene2_panStart": "{{scene2_panStart}}",
-    "scene2_panEnd": "{{scene2_panEnd}}",
+    "scene2_zoom": "{{scene2_zoom}}",
+    "scene2_pan": "{{scene2_pan}}",
+    "scene2_panDistance": "{{scene2_panDistance}}",
     "scene2_animationDuration": "{{scene2_animationDuration}}",
     "scene2_easing": "{{scene2_easing}}",
     "scene3_overlaidText": "{{scene3_overlaidText}}",
@@ -34,10 +32,9 @@
     "scene3_imagePrompt": "{{scene3_imagePrompt}}",
     "scene3_animation": "{{scene3_animation}}",
     "scene3_motionType": "{{scene3_motionType}}",
-    "scene3_zoomStart": "{{scene3_zoomStart}}",
-    "scene3_zoomEnd": "{{scene3_zoomEnd}}",
-    "scene3_panStart": "{{scene3_panStart}}",
-    "scene3_panEnd": "{{scene3_panEnd}}",
+    "scene3_zoom": "{{scene3_zoom}}",
+    "scene3_pan": "{{scene3_pan}}",
+    "scene3_panDistance": "{{scene3_panDistance}}",
     "scene3_animationDuration": "{{scene3_animationDuration}}",
     "scene3_easing": "{{scene3_easing}}",
     "scene4_overlaidText": "{{scene4_overlaidText}}",
@@ -45,10 +42,9 @@
     "scene4_imagePrompt": "{{scene4_imagePrompt}}",
     "scene4_animation": "{{scene4_animation}}",
     "scene4_motionType": "{{scene4_motionType}}",
-    "scene4_zoomStart": "{{scene4_zoomStart}}",
-    "scene4_zoomEnd": "{{scene4_zoomEnd}}",
-    "scene4_panStart": "{{scene4_panStart}}",
-    "scene4_panEnd": "{{scene4_panEnd}}",
+    "scene4_zoom": "{{scene4_zoom}}",
+    "scene4_pan": "{{scene4_pan}}",
+    "scene4_panDistance": "{{scene4_panDistance}}",
     "scene4_animationDuration": "{{scene4_animationDuration}}",
     "scene4_easing": "{{scene4_easing}}",
     "scene5_overlaidText": "{{scene5_overlaidText}}",
@@ -56,10 +52,9 @@
     "scene5_imagePrompt": "{{scene5_imagePrompt}}",
     "scene5_animation": "{{scene5_animation}}",
     "scene5_motionType": "{{scene5_motionType}}",
-    "scene5_zoomStart": "{{scene5_zoomStart}}",
-    "scene5_zoomEnd": "{{scene5_zoomEnd}}",
-    "scene5_panStart": "{{scene5_panStart}}",
-    "scene5_panEnd": "{{scene5_panEnd}}",
+    "scene5_zoom": "{{scene5_zoom}}",
+    "scene5_pan": "{{scene5_pan}}",
+    "scene5_panDistance": "{{scene5_panDistance}}",
     "scene5_animationDuration": "{{scene5_animationDuration}}",
     "scene5_easing": "{{scene5_easing}}",
     "scene6_overlaidText": "{{scene6_overlaidText}}",
@@ -67,10 +62,9 @@
     "scene6_imagePrompt": "{{scene6_imagePrompt}}",
     "scene6_animation": "{{scene6_animation}}",
     "scene6_motionType": "{{scene6_motionType}}",
-    "scene6_zoomStart": "{{scene6_zoomStart}}",
-    "scene6_zoomEnd": "{{scene6_zoomEnd}}",
-    "scene6_panStart": "{{scene6_panStart}}",
-    "scene6_panEnd": "{{scene6_panEnd}}",
+    "scene6_zoom": "{{scene6_zoom}}",
+    "scene6_pan": "{{scene6_pan}}",
+    "scene6_panDistance": "{{scene6_panDistance}}",
     "scene6_animationDuration": "{{scene6_animationDuration}}",
     "scene6_easing": "{{scene6_easing}}",
     "scene7_overlaidText": "{{scene7_overlaidText}}",
@@ -78,10 +72,9 @@
     "scene7_imagePrompt": "{{scene7_imagePrompt}}",
     "scene7_animation": "{{scene7_animation}}",
     "scene7_motionType": "{{scene7_motionType}}",
-    "scene7_zoomStart": "{{scene7_zoomStart}}",
-    "scene7_zoomEnd": "{{scene7_zoomEnd}}",
-    "scene7_panStart": "{{scene7_panStart}}",
-    "scene7_panEnd": "{{scene7_panEnd}}",
+    "scene7_zoom": "{{scene7_zoom}}",
+    "scene7_pan": "{{scene7_pan}}",
+    "scene7_panDistance": "{{scene7_panDistance}}",
     "scene7_animationDuration": "{{scene7_animationDuration}}",
     "scene7_easing": "{{scene7_easing}}",
     "scene8_overlaidText": "{{scene8_overlaidText}}",
@@ -89,10 +82,9 @@
     "scene8_imagePrompt": "{{scene8_imagePrompt}}",
     "scene8_animation": "{{scene8_animation}}",
     "scene8_motionType": "{{scene8_motionType}}",
-    "scene8_zoomStart": "{{scene8_zoomStart}}",
-    "scene8_zoomEnd": "{{scene8_zoomEnd}}",
-    "scene8_panStart": "{{scene8_panStart}}",
-    "scene8_panEnd": "{{scene8_panEnd}}",
+    "scene8_zoom": "{{scene8_zoom}}",
+    "scene8_pan": "{{scene8_pan}}",
+    "scene8_panDistance": "{{scene8_panDistance}}",
     "scene8_animationDuration": "{{scene8_animationDuration}}",
     "scene8_easing": "{{scene8_easing}}",
     "scene9_overlaidText": "{{scene9_overlaidText}}",
@@ -100,10 +92,9 @@
     "scene9_imagePrompt": "{{scene9_imagePrompt}}",
     "scene9_animation": "{{scene9_animation}}",
     "scene9_motionType": "{{scene9_motionType}}",
-    "scene9_zoomStart": "{{scene9_zoomStart}}",
-    "scene9_zoomEnd": "{{scene9_zoomEnd}}",
-    "scene9_panStart": "{{scene9_panStart}}",
-    "scene9_panEnd": "{{scene9_panEnd}}",
+    "scene9_zoom": "{{scene9_zoom}}",
+    "scene9_pan": "{{scene9_pan}}",
+    "scene9_panDistance": "{{scene9_panDistance}}",
     "scene9_animationDuration": "{{scene9_animationDuration}}",
     "scene9_easing": "{{scene9_easing}}",
     "scene10_overlaidText": "{{scene10_overlaidText}}",
@@ -111,10 +102,9 @@
     "scene10_imagePrompt": "{{scene10_imagePrompt}}",
     "scene10_animation": "{{scene10_animation}}",
     "scene10_motionType": "{{scene10_motionType}}",
-    "scene10_zoomStart": "{{scene10_zoomStart}}",
-    "scene10_zoomEnd": "{{scene10_zoomEnd}}",
-    "scene10_panStart": "{{scene10_panStart}}",
-    "scene10_panEnd": "{{scene10_panEnd}}",
+    "scene10_zoom": "{{scene10_zoom}}",
+    "scene10_pan": "{{scene10_pan}}",
+    "scene10_panDistance": "{{scene10_panDistance}}",
     "scene10_animationDuration": "{{scene10_animationDuration}}",
     "scene10_easing": "{{scene10_easing}}",
     "scene11_overlaidText": "{{scene11_overlaidText}}",
@@ -122,10 +112,9 @@
     "scene11_imagePrompt": "{{scene11_imagePrompt}}",
     "scene11_animation": "{{scene11_animation}}",
     "scene11_motionType": "{{scene11_motionType}}",
-    "scene11_zoomStart": "{{scene11_zoomStart}}",
-    "scene11_zoomEnd": "{{scene11_zoomEnd}}",
-    "scene11_panStart": "{{scene11_panStart}}",
-    "scene11_panEnd": "{{scene11_panEnd}}",
+    "scene11_zoom": "{{scene11_zoom}}",
+    "scene11_pan": "{{scene11_pan}}",
+    "scene11_panDistance": "{{scene11_panDistance}}",
     "scene11_animationDuration": "{{scene11_animationDuration}}",
     "scene11_easing": "{{scene11_easing}}",
     "scene12_overlaidText": "{{scene12_overlaidText}}",
@@ -133,10 +122,9 @@
     "scene12_imagePrompt": "{{scene12_imagePrompt}}",
     "scene12_animation": "{{scene12_animation}}",
     "scene12_motionType": "{{scene12_motionType}}",
-    "scene12_zoomStart": "{{scene12_zoomStart}}",
-    "scene12_zoomEnd": "{{scene12_zoomEnd}}",
-    "scene12_panStart": "{{scene12_panStart}}",
-    "scene12_panEnd": "{{scene12_panEnd}}",
+    "scene12_zoom": "{{scene12_zoom}}",
+    "scene12_pan": "{{scene12_pan}}",
+    "scene12_panDistance": "{{scene12_panDistance}}",
     "scene12_animationDuration": "{{scene12_animationDuration}}",
     "scene12_easing": "{{scene12_easing}}",
     "scene13_overlaidText": "{{scene13_overlaidText}}",
@@ -144,10 +132,9 @@
     "scene13_imagePrompt": "{{scene13_imagePrompt}}",
     "scene13_animation": "{{scene13_animation}}",
     "scene13_motionType": "{{scene13_motionType}}",
-    "scene13_zoomStart": "{{scene13_zoomStart}}",
-    "scene13_zoomEnd": "{{scene13_zoomEnd}}",
-    "scene13_panStart": "{{scene13_panStart}}",
-    "scene13_panEnd": "{{scene13_panEnd}}",
+    "scene13_zoom": "{{scene13_zoom}}",
+    "scene13_pan": "{{scene13_pan}}",
+    "scene13_panDistance": "{{scene13_panDistance}}",
     "scene13_animationDuration": "{{scene13_animationDuration}}",
     "scene13_easing": "{{scene13_easing}}",
     "scene14_overlaidText": "{{scene14_overlaidText}}",
@@ -155,10 +142,9 @@
     "scene14_imagePrompt": "{{scene14_imagePrompt}}",
     "scene14_animation": "{{scene14_animation}}",
     "scene14_motionType": "{{scene14_motionType}}",
-    "scene14_zoomStart": "{{scene14_zoomStart}}",
-    "scene14_zoomEnd": "{{scene14_zoomEnd}}",
-    "scene14_panStart": "{{scene14_panStart}}",
-    "scene14_panEnd": "{{scene14_panEnd}}",
+    "scene14_zoom": "{{scene14_zoom}}",
+    "scene14_pan": "{{scene14_pan}}",
+    "scene14_panDistance": "{{scene14_panDistance}}",
     "scene14_animationDuration": "{{scene14_animationDuration}}",
     "scene14_easing": "{{scene14_easing}}",
     "scene15_overlaidText": "{{scene15_overlaidText}}",
@@ -166,10 +152,9 @@
     "scene15_imagePrompt": "{{scene15_imagePrompt}}",
     "scene15_animation": "{{scene15_animation}}",
     "scene15_motionType": "{{scene15_motionType}}",
-    "scene15_zoomStart": "{{scene15_zoomStart}}",
-    "scene15_zoomEnd": "{{scene15_zoomEnd}}",
-    "scene15_panStart": "{{scene15_panStart}}",
-    "scene15_panEnd": "{{scene15_panEnd}}",
+    "scene15_zoom": "{{scene15_zoom}}",
+    "scene15_pan": "{{scene15_pan}}",
+    "scene15_panDistance": "{{scene15_panDistance}}",
     "scene15_animationDuration": "{{scene15_animationDuration}}",
     "scene15_easing": "{{scene15_easing}}",
     "scene16_overlaidText": "{{scene16_overlaidText}}",
@@ -177,10 +162,9 @@
     "scene16_imagePrompt": "{{scene16_imagePrompt}}",
     "scene16_animation": "{{scene16_animation}}",
     "scene16_motionType": "{{scene16_motionType}}",
-    "scene16_zoomStart": "{{scene16_zoomStart}}",
-    "scene16_zoomEnd": "{{scene16_zoomEnd}}",
-    "scene16_panStart": "{{scene16_panStart}}",
-    "scene16_panEnd": "{{scene16_panEnd}}",
+    "scene16_zoom": "{{scene16_zoom}}",
+    "scene16_pan": "{{scene16_pan}}",
+    "scene16_panDistance": "{{scene16_panDistance}}",
     "scene16_animationDuration": "{{scene16_animationDuration}}",
     "scene16_easing": "{{scene16_easing}}",
     "scene17_overlaidText": "{{scene17_overlaidText}}",
@@ -188,10 +172,9 @@
     "scene17_imagePrompt": "{{scene17_imagePrompt}}",
     "scene17_animation": "{{scene17_animation}}",
     "scene17_motionType": "{{scene17_motionType}}",
-    "scene17_zoomStart": "{{scene17_zoomStart}}",
-    "scene17_zoomEnd": "{{scene17_zoomEnd}}",
-    "scene17_panStart": "{{scene17_panStart}}",
-    "scene17_panEnd": "{{scene17_panEnd}}",
+    "scene17_zoom": "{{scene17_zoom}}",
+    "scene17_pan": "{{scene17_pan}}",
+    "scene17_panDistance": "{{scene17_panDistance}}",
     "scene17_animationDuration": "{{scene17_animationDuration}}",
     "scene17_easing": "{{scene17_easing}}",
     "scene18_overlaidText": "{{scene18_overlaidText}}",
@@ -199,10 +182,9 @@
     "scene18_imagePrompt": "{{scene18_imagePrompt}}",
     "scene18_animation": "{{scene18_animation}}",
     "scene18_motionType": "{{scene18_motionType}}",
-    "scene18_zoomStart": "{{scene18_zoomStart}}",
-    "scene18_zoomEnd": "{{scene18_zoomEnd}}",
-    "scene18_panStart": "{{scene18_panStart}}",
-    "scene18_panEnd": "{{scene18_panEnd}}",
+    "scene18_zoom": "{{scene18_zoom}}",
+    "scene18_pan": "{{scene18_pan}}",
+    "scene18_panDistance": "{{scene18_panDistance}}",
     "scene18_animationDuration": "{{scene18_animationDuration}}",
     "scene18_easing": "{{scene18_easing}}",
     "scene19_overlaidText": "{{scene19_overlaidText}}",
@@ -210,10 +192,9 @@
     "scene19_imagePrompt": "{{scene19_imagePrompt}}",
     "scene19_animation": "{{scene19_animation}}",
     "scene19_motionType": "{{scene19_motionType}}",
-    "scene19_zoomStart": "{{scene19_zoomStart}}",
-    "scene19_zoomEnd": "{{scene19_zoomEnd}}",
-    "scene19_panStart": "{{scene19_panStart}}",
-    "scene19_panEnd": "{{scene19_panEnd}}",
+    "scene19_zoom": "{{scene19_zoom}}",
+    "scene19_pan": "{{scene19_pan}}",
+    "scene19_panDistance": "{{scene19_panDistance}}",
     "scene19_animationDuration": "{{scene19_animationDuration}}",
     "scene19_easing": "{{scene19_easing}}",
     "scene20_overlaidText": "{{scene20_overlaidText}}",
@@ -221,10 +202,9 @@
     "scene20_imagePrompt": "{{scene20_imagePrompt}}",
     "scene20_animation": "{{scene20_animation}}",
     "scene20_motionType": "{{scene20_motionType}}",
-    "scene20_zoomStart": "{{scene20_zoomStart}}",
-    "scene20_zoomEnd": "{{scene20_zoomEnd}}",
-    "scene20_panStart": "{{scene20_panStart}}",
-    "scene20_panEnd": "{{scene20_panEnd}}",
+    "scene20_zoom": "{{scene20_zoom}}",
+    "scene20_pan": "{{scene20_pan}}",
+    "scene20_panDistance": "{{scene20_panDistance}}",
     "scene20_animationDuration": "{{scene20_animationDuration}}",
     "scene20_easing": "{{scene20_easing}}"
   },
@@ -241,15 +221,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene1_zoomStart}}",
-            "end": "{{scene1_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene1_panStart}}",
-            "end": "{{scene1_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene1_zoom}}",
+          "pan": "{{scene1_pan}}",
+          "pan-distance": "{{scene1_panDistance}}"
         },
         {
           "id": "scene1_voice",
@@ -273,15 +247,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene2_zoomStart}}",
-            "end": "{{scene2_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene2_panStart}}",
-            "end": "{{scene2_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene2_zoom}}",
+          "pan": "{{scene2_pan}}",
+          "pan-distance": "{{scene2_panDistance}}"
         },
         {
           "id": "scene2_voice",
@@ -305,15 +273,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene3_zoomStart}}",
-            "end": "{{scene3_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene3_panStart}}",
-            "end": "{{scene3_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene3_zoom}}",
+          "pan": "{{scene3_pan}}",
+          "pan-distance": "{{scene3_panDistance}}"
         },
         {
           "id": "scene3_voice",
@@ -337,15 +299,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene4_zoomStart}}",
-            "end": "{{scene4_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene4_panStart}}",
-            "end": "{{scene4_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene4_zoom}}",
+          "pan": "{{scene4_pan}}",
+          "pan-distance": "{{scene4_panDistance}}"
         },
         {
           "id": "scene4_voice",
@@ -369,15 +325,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene5_zoomStart}}",
-            "end": "{{scene5_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene5_panStart}}",
-            "end": "{{scene5_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene5_zoom}}",
+          "pan": "{{scene5_pan}}",
+          "pan-distance": "{{scene5_panDistance}}"
         },
         {
           "id": "scene5_voice",
@@ -401,15 +351,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene6_zoomStart}}",
-            "end": "{{scene6_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene6_panStart}}",
-            "end": "{{scene6_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene6_zoom}}",
+          "pan": "{{scene6_pan}}",
+          "pan-distance": "{{scene6_panDistance}}"
         },
         {
           "id": "scene6_voice",
@@ -433,15 +377,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene7_zoomStart}}",
-            "end": "{{scene7_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene7_panStart}}",
-            "end": "{{scene7_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene7_zoom}}",
+          "pan": "{{scene7_pan}}",
+          "pan-distance": "{{scene7_panDistance}}"
         },
         {
           "id": "scene7_voice",
@@ -465,15 +403,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene8_zoomStart}}",
-            "end": "{{scene8_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene8_panStart}}",
-            "end": "{{scene8_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene8_zoom}}",
+          "pan": "{{scene8_pan}}",
+          "pan-distance": "{{scene8_panDistance}}"
         },
         {
           "id": "scene8_voice",
@@ -497,15 +429,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene9_zoomStart}}",
-            "end": "{{scene9_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene9_panStart}}",
-            "end": "{{scene9_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene9_zoom}}",
+          "pan": "{{scene9_pan}}",
+          "pan-distance": "{{scene9_panDistance}}"
         },
         {
           "id": "scene9_voice",
@@ -529,15 +455,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene10_zoomStart}}",
-            "end": "{{scene10_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene10_panStart}}",
-            "end": "{{scene10_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene10_zoom}}",
+          "pan": "{{scene10_pan}}",
+          "pan-distance": "{{scene10_panDistance}}"
         },
         {
           "id": "scene10_voice",
@@ -561,15 +481,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene11_zoomStart}}",
-            "end": "{{scene11_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene11_panStart}}",
-            "end": "{{scene11_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene11_zoom}}",
+          "pan": "{{scene11_pan}}",
+          "pan-distance": "{{scene11_panDistance}}"
         },
         {
           "id": "scene11_voice",
@@ -593,15 +507,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene12_zoomStart}}",
-            "end": "{{scene12_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene12_panStart}}",
-            "end": "{{scene12_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene12_zoom}}",
+          "pan": "{{scene12_pan}}",
+          "pan-distance": "{{scene12_panDistance}}"
         },
         {
           "id": "scene12_voice",
@@ -625,15 +533,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene13_zoomStart}}",
-            "end": "{{scene13_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene13_panStart}}",
-            "end": "{{scene13_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene13_zoom}}",
+          "pan": "{{scene13_pan}}",
+          "pan-distance": "{{scene13_panDistance}}"
         },
         {
           "id": "scene13_voice",
@@ -657,15 +559,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene14_zoomStart}}",
-            "end": "{{scene14_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene14_panStart}}",
-            "end": "{{scene14_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene14_zoom}}",
+          "pan": "{{scene14_pan}}",
+          "pan-distance": "{{scene14_panDistance}}"
         },
         {
           "id": "scene14_voice",
@@ -689,15 +585,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene15_zoomStart}}",
-            "end": "{{scene15_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene15_panStart}}",
-            "end": "{{scene15_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene15_zoom}}",
+          "pan": "{{scene15_pan}}",
+          "pan-distance": "{{scene15_panDistance}}"
         },
         {
           "id": "scene15_voice",
@@ -721,15 +611,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene16_zoomStart}}",
-            "end": "{{scene16_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene16_panStart}}",
-            "end": "{{scene16_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene16_zoom}}",
+          "pan": "{{scene16_pan}}",
+          "pan-distance": "{{scene16_panDistance}}"
         },
         {
           "id": "scene16_voice",
@@ -753,15 +637,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene17_zoomStart}}",
-            "end": "{{scene17_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene17_panStart}}",
-            "end": "{{scene17_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene17_zoom}}",
+          "pan": "{{scene17_pan}}",
+          "pan-distance": "{{scene17_panDistance}}"
         },
         {
           "id": "scene17_voice",
@@ -785,15 +663,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene18_zoomStart}}",
-            "end": "{{scene18_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene18_panStart}}",
-            "end": "{{scene18_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene18_zoom}}",
+          "pan": "{{scene18_pan}}",
+          "pan-distance": "{{scene18_panDistance}}"
         },
         {
           "id": "scene18_voice",
@@ -817,15 +689,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene19_zoomStart}}",
-            "end": "{{scene19_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene19_panStart}}",
-            "end": "{{scene19_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene19_zoom}}",
+          "pan": "{{scene19_pan}}",
+          "pan-distance": "{{scene19_panDistance}}"
         },
         {
           "id": "scene19_voice",
@@ -849,15 +715,9 @@
           "model": "flux-pro",
           "resize": "cover",
           "duration": "auto",
-          "zoom": {
-            "start": "{{scene20_zoomStart}}",
-            "end": "{{scene20_zoomEnd}}"
-          },
-          "pan": {
-            "start": "{{scene20_panStart}}",
-            "end": "{{scene20_panEnd}}"
-          },
-          "pan-distance": 0.2
+          "zoom": "{{scene20_zoom}}",
+          "pan": "{{scene20_pan}}",
+          "pan-distance": "{{scene20_panDistance}}"
         },
         {
           "id": "scene20_voice",

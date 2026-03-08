@@ -243,8 +243,8 @@
           "prompt": "{{title_backgroundPrompt}}, dramatic divine light rays, rich gold and deep indigo, cinematic wide shot, 8K",
           "model": "flux-pro",
           "resize": "cover",
-          "zoom": { "start": 3, "end": 0 },
-          "pan": { "start": "center", "end": "center" }
+          "zoom": 3,
+          "pan": "bottom"
         },
         {
           "id": "title_overlay",
