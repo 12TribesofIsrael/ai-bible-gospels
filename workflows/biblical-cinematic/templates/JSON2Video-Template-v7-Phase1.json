@@ -140,21 +140,11 @@
         {
           "id": "title_bg",
           "type": "image",
-          "prompt": "{{title_backgroundPrompt}}, dramatic divine light rays, rich gold and deep indigo, cinematic wide shot, 8K",
+          "prompt": "{{title_backgroundPrompt}}, dramatic divine light rays, deep indigo and near-black shadows, cinematic wide shot, very dark background with single focal light source, 8K",
           "model": "flux-pro",
           "resize": "cover",
           "zoom": 3,
           "pan": "bottom"
-        },
-        {
-          "id": "title_overlay",
-          "type": "rectangle",
-          "x": 0,
-          "y": 0,
-          "width": "100%",
-          "height": "100%",
-          "color": "#000000",
-          "opacity": 0.5
         },
         {
           "id": "title_text",
@@ -173,21 +163,6 @@
             "type": "fade-in",
             "duration": 1.5,
             "delay": 0.5
-          }
-        },
-        {
-          "id": "title_divider",
-          "type": "rectangle",
-          "x": "25%",
-          "y": "55%",
-          "width": "50%",
-          "height": 3,
-          "color": "#D4AF37",
-          "opacity": 0.8,
-          "animation": {
-            "type": "fade-in",
-            "duration": 1.0,
-            "delay": 1.5
           }
         },
         {
