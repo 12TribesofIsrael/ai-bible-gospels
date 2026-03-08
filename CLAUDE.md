@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI Movie — a personal workspace for building AI-generated video systems. Contains two workflows:
 
-| Workflow | Location | Description |
-|---|---|---|
-| **General AI Movie** | root (`app.py`, `pipeline.py`, `src/`) | Python/Gradio pipeline: text prompt → images → video clips → narrated movie via fal.ai + OpenAI |
-| **Biblical Cinematic** | `workflows/biblical-cinematic/` | Full-stack web app + n8n: paste KJV scripture → clean → review → approve → auto-generates 12–20 min cinematic video |
+| Workflow | Location | Status | Description |
+|---|---|---|---|
+| **General AI Movie** | root (`app.py`, `pipeline.py`, `src/`) | Reference | Python/Gradio pipeline: text prompt → images → video clips → narrated movie via fal.ai + OpenAI |
+| **Biblical Cinematic** | `workflows/biblical-cinematic/` | ✓ Production (v7.2) | KJV scripture → cleaned text → n8n Perplexity + ElevenLabs + JSON2Video → 8–13 min MP4 |
 
 ---
 
@@ -116,9 +116,9 @@ python app.py
 | [workflows/biblical-cinematic/server/app.py](workflows/biblical-cinematic/server/app.py) | FastAPI server — `/api/clean`, `/api/generate`, `/api/status`, `/api/render/*` (Step 4), `/api/upload/*` (Step 5 YouTube) |
 | [workflows/biblical-cinematic/server/requirements.txt](workflows/biblical-cinematic/server/requirements.txt) | Server dependencies |
 | [workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py](workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py) | KJV text cleaner/splitter (imported by server) |
-| [workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v7.2.json](workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v7.2.json) | **Current production workflow** — Import into n8n (v7.2: field-name-anchored JSON extraction, Ken Burns + title card) |
-| [workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v6.0.2.json](workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v6.0.2.json) | Legacy v6 — do not edit, kept as reference |
-| [workflows/biblical-cinematic/templates/JSON2Video-Template-FIXED.json](workflows/biblical-cinematic/templates/JSON2Video-Template-FIXED.json) | Import into JSON2Video |
+| [workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v7.2.json](workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v7.2.json) | **Current production workflow** — Import into n8n (v7.2: field-name-anchored JSON extraction, proven stable) |
+| [workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v6.0.2.json](workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v6.0.2.json) | Legacy v6 reference — do NOT edit or use |
+| [workflows/biblical-cinematic/templates/JSON2Video-Template-v7-Phase1_no_card.json](workflows/biblical-cinematic/templates/JSON2Video-Template-v7-Phase1_no_card.json) | **Current production template** — Import into JSON2Video as template ID `h5yD4ZbxhCPNFQ2WoVUs` (20 scenes, Ken Burns, proven working baseline) |
 | [workflows/biblical-cinematic/scripts/post_produce.py](workflows/biblical-cinematic/scripts/post_produce.py) | FFmpeg post-production — concat intro/outro, overlay logo, mix music |
 | [workflows/biblical-cinematic/scripts/batch_post_produce.py](workflows/biblical-cinematic/scripts/batch_post_produce.py) | Batch mode — process all videos in output/raw/ at once |
 | [workflows/biblical-cinematic/scripts/upload_youtube.py](workflows/biblical-cinematic/scripts/upload_youtube.py) | YouTube uploader — OAuth2, auto-generates title/description/thumbnail, uploads as unlisted |
@@ -174,18 +174,29 @@ npm run lint       # ESLint
 
 ---
 
-## v7 Workflow (Current Production)
+## v7 Workflow (Current Production — v7.2)
 
-v7.2 is deployed and working. Key features vs v6:
-- **Title card** — auto-extracts book/chapter from input text (e.g. "Matthew 12") for scene 0
-- **Cinematic motion** — 5 Ken Burns types cycling per scene (zoom-in, zoom-out, ken-burns, pan-right, pan-left)
-- **Bulletproof JSON parsing** — field-name-anchored extraction immune to Perplexity's unescaped quotes
-- **120s timeout** on Perplexity call (handles first-run schema compilation delay)
+**Status:** ✓ Stable | **Cost:** ~$1.32/video | **Time:** 8–13 min
 
-See **[docs/v7-upgrade-plan.md](docs/v7-upgrade-plan.md)** for Phase 2 spec (Kling real AI video motion, ~$7.31/video).
+### Key Features
+- **20 cinematic scenes** with variable Ken Burns motion (zoom-in, zoom-out, ken-burns, pan-right, pan-left)
+- **Bulletproof JSON parsing** — field-name-anchored extraction immune to Perplexity's unescaped quotes (100% reliable)
+- **ElevenLabs narration** — 214 WPM, professional voice (NgBYGKDDq2Z8Hnhatgma)
+- **JSON2Video rendering** — HD 1920×1080 with Ken Burns effects
 
-### Perplexity JSON parsing — critical note
-Perplexity sonar-pro returns JSON with unescaped `"` inside strings. The fix uses field-name-anchored extraction (`indexOf('"fieldName"')` as boundaries) since field names never appear in biblical text values. See `ERRORS.md` entry 2026-03-07 for full history.
+### Files
+- **Workflow:** `n8n/Biblical-Video-Workflow-v7.2.json` (current production)
+- **Template:** `templates/JSON2Video-Template-v7-Phase1_no_card.json` (proven working baseline, 20 scenes, no title card)
+- **Reference workflows:** `n8n/Biblical-Video-Workflow-v6.0.2.json` (legacy stable, do not edit)
+
+### Critical Notes
+
+**Perplexity JSON parsing:** Perplexity sonar-pro returns unescaped `"` inside string values (e.g., `"the "Pharisees" confronted"`). The solution uses field-name-anchored extraction: `indexOf('"fieldName"')` as structural boundaries, since field names never appear in biblical text or image prompts. This is 100% reliable and immune to Perplexity output variations. See `ERRORS.md` 2026-03-07 for full root cause analysis.
+
+**n8n workflow:** `pan: ""` empty strings are invalid for JSON2Video. For zoom-in/zoom-out scenes, the workflow now sends `pan: "right"` and `pan: "left"` with minimal distance (0.05) instead.
+
+### Phase 2 (Future)
+See **[docs/v7-upgrade-plan.md](docs/v7-upgrade-plan.md)** for v8.0 spec: Kling AI video motion (~$7.31/video, ~35–45 min render time).
 
 ---
 

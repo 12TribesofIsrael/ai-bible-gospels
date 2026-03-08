@@ -5,6 +5,32 @@ Archive this file when the app reaches full production.
 
 ---
 
+## [2026-03-08] "Not all elements have metadata" — 8 consecutive render failures
+
+**Symptom:** Eight render failures after modifying template. Error after 671 seconds: "Not all elements have metadata". Last successful render was March 7 at 18:42 using the baseline `h5.json`.
+
+**Root cause:** Multiple template bugs introduced during v7.2 modifications:
+1. **Missing `"duration": "auto"`** on all 20 image elements (JSON2Video requires this metadata)
+2. **Title card with unsupported elements**: `rectangle` type and text `animation` sub-objects (not valid schemas)
+3. **Stripped variables block** (removed `animation`, `motionType`, `animationDuration`, `easing`)
+4. **Variable name mismatches**: referenced `scene1_zoomStart`/`zoomEnd`/`panStart`/`panEnd` but n8n sends `scene1_zoom`/`scene1_pan`/`scene1_panDistance`
+5. **`pan: ""` empty strings** for zoom-only scenes (invalid JSON2Video pan value)
+
+**Fix:** **Reverted to the proven working baseline `h5.json`** (the exact template structure that rendered successfully at 18:42). Copied it to `JSON2Video-Template-v7-Phase1_no_card.json` with only the template ID and comment updated. This is 100% structurally identical to the template that worked.
+
+**Prevention:**
+- **Never modify a working template.** The baseline is sacred.
+- **Test new features in isolation first** (e.g., test title card in a separate template before merging)
+- **Always verify template structure matches n8n variable names** before uploading
+- **Validate empty pan/zoom values** — all must be valid enum values or scalars
+
+**Files:**
+- **Source baseline:** `Checkworking/h5.json` (reference only)
+- **Current production:** `templates/JSON2Video-Template-v7-Phase1_no_card.json` (copy of h5.json, template ID `h5yD4ZbxhCPNFQ2WoVUs`)
+- **Broken/archived:** `archive/releases/RELEASES/v7.2-broken-templates/JSON2Video-Template-v7-Phase1.json` (DO NOT USE)
+
+---
+
 ## [2026-03-07] JSON2Video rejects rectangle elements in scenes
 
 **Symptom:** Title card fails with `Object [movie/scenes[0]/elements[1]] does not match any of possible schemas: rectangle`

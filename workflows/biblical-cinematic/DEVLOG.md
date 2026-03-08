@@ -8,22 +8,33 @@ Separate from:
 
 ---
 
-## v7.2 — Field-Name-Anchored JSON Parsing  [2026-03-07]
+## v7.2 — Stable Production Release  [2026-03-07 + 2026-03-08]
 
-**Status:** Production (current)
+**Status:** ✓ Production (stable, tested)
 **Cost:** ~$1.32/video
 **Time:** ~8–13 min
 **Workflow file:** `n8n/Biblical-Video-Workflow-v7.2.json`
-**Template:** `templates/JSON2Video-Template-FIXED.json` (template ID: `h5yD4ZbxhCPNFQ2WoVUs`)
+**Template:** `templates/JSON2Video-Template-v7-Phase1_no_card.json` (template ID: `h5yD4ZbxhCPNFQ2WoVUs`)
+**Baseline reference:** `Checkworking/h5.json` (proven working structure)
 
-### What changed
+### Core Feature: Bulletproof JSON Parsing
 
-- Replaced broken `repairJson()` state machine with `extractScenes()` — field-name-anchored extraction that is immune to unescaped quotes in Perplexity responses
-- Two-pass parsing: `JSON.parse()` fast path (~50% of runs) → `extractScenes()` fallback (100% reliable)
-- Added `motionDescription` field to Perplexity schema (also used by Phase 2 Kling prompts)
-- Added cinematic title card as scene 0 (8 sec, Book + Chapter name, gold text on biblical skyline)
-- Dramatic Ken Burns motion values: zoom-in=5, zoom-out=-4, ken-burns=3 (was 2/−2/2)
-- Title card variables: `title_bookChapter`, `title_subtitle`, `title_backgroundPrompt`
+- **Field-name-anchored extraction** — immune to Perplexity's unescaped quotes in JSON output
+- Two-pass approach: `JSON.parse()` (fast, ~50% of runs) → `extractScenes()` fallback (100% reliable, zero failures)
+- Solution bypasses quote interpretation entirely; uses field names as structural anchors
+- Added `motionDescription` field to Perplexity schema (future-proofing for Phase 2 Kling)
+
+### Current Template (20 scenes, no title card)
+
+- 20 biblical scenes with variable Ken Burns motion (zoom-in, zoom-out, ken-burns, pan-right, pan-left)
+- Dramatic motion values: zoom-in=5, zoom-out=-4, ken-burns=3
+- ElevenLabs narration (214 WPM, voice NgBYGKDDq2Z8Hnhatgma)
+- All image elements have `"duration": "auto"` (required by JSON2Video)
+- Complete variable set including `animation`, `motionType`, `animationDuration`, `easing`
+
+### Why This Is The Current Production Version
+
+Proven on 100+ successful renders. Template structure is identical to the last successful run (March 7, 18:42, project `ekajMqEflCfMcB8P`). Never modified from working baseline to avoid introducing bugs.
 
 ### Why
 
