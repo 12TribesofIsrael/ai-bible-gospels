@@ -25,6 +25,7 @@ load_dotenv(find_dotenv(), override=True)
 # Make the text_processor module importable
 sys.path.insert(0, str(Path(__file__).parent.parent / "text_processor"))
 
+import json as json_module
 import re
 import threading
 import httpx
@@ -52,6 +53,36 @@ generation_state: dict = {
 }
 
 JSON2VIDEO_BASE = "https://api.json2video.com/v2/movies"
+
+# ── Bible chapter data (loaded once at startup) ──────────────────────────────
+_BIBLE_JSON_PATH = Path(__file__).parent.parent / "assets" / "bible_chapters.json"
+_BIBLE_DATA: list = []  # populated below
+
+# OT/Apocrypha/NT grouping for the dropdown
+_OT_BOOKS = {
+    "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua",
+    "Judges", "Ruth", "1 Samuel", "2 Samuel", "1 Kings", "2 Kings",
+    "1 Chronicles", "2 Chronicles", "Ezra", "Nehemiah", "Esther", "Job",
+    "Psalms", "Proverbs", "Ecclesiastes", "Song of Songs", "Isaiah",
+    "Jeremiah", "Lamentations", "Ezekiel", "Daniel", "Hosea", "Joel",
+    "Amos", "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk",
+    "Zephaniah", "Haggai", "Zechariah", "Malachi",
+}
+_APOCRYPHA_BOOKS = {
+    "Tobit", "Judith", "Esther (Greek)", "Wisdom",
+    "Sirach (Ecclesiasticus)", "Baruch", "Letter of Jeremiah",
+    "Prayer of Azariah and the Song of the Three Jews", "Susanna",
+    "Bel and the Dragon", "1 Maccabees", "2 Maccabees",
+    "1 Esdras", "2 Esdras", "Prayer of Manassah",
+}
+
+if _BIBLE_JSON_PATH.exists():
+    with open(_BIBLE_JSON_PATH, "r", encoding="utf-8") as _bf:
+        _raw = json_module.load(_bf)
+    _BIBLE_DATA = _raw.get("books", [])
+    print(f"Loaded {len(_BIBLE_DATA)} Bible books from {_BIBLE_JSON_PATH.name}")
+else:
+    print(f"WARNING: Bible data not found at {_BIBLE_JSON_PATH}")
 
 # ── Post-production paths ──────────────────────────────────────────────────────
 _SCRIPT_DIR   = Path(__file__).parent
@@ -122,6 +153,35 @@ class UploadRequest(BaseModel):
     scripture: str
 
 
+# ── Bible Selector API ────────────────────────────────────────────────────────
+
+@app.get("/api/bible/books")
+async def api_bible_books():
+    """Return list of all Bible books with chapter counts, grouped by testament."""
+    ot, apoc, nt = [], [], []
+    for book in _BIBLE_DATA:
+        entry = {"name": book["name"], "chapters": len(book["chapters"])}
+        if book["name"] in _OT_BOOKS:
+            ot.append(entry)
+        elif book["name"] in _APOCRYPHA_BOOKS:
+            apoc.append(entry)
+        else:
+            nt.append(entry)
+    return {"old_testament": ot, "apocrypha": apoc, "new_testament": nt}
+
+
+@app.get("/api/bible/chapter")
+async def api_bible_chapter(book: str, chapter: str):
+    """Return the full text of a specific Bible chapter."""
+    for b in _BIBLE_DATA:
+        if b["name"] == book:
+            text = b["chapters"].get(chapter)
+            if text:
+                return {"text": text}
+            raise HTTPException(status_code=404, detail=f"Chapter {chapter} not found in {book}")
+    raise HTTPException(status_code=404, detail=f"Book '{book}' not found")
+
+
 # ── API Routes ────────────────────────────────────────────────────────────────
 
 @app.post("/api/clean", response_model=CleanResponse)
@@ -132,6 +192,7 @@ async def api_clean(req: CleanRequest):
 
     cleaned = clean_text(req.text)
     cleaned = kjv_narration_fix(cleaned)
+    cleaned = kjv_narration_fix(cleaned)  # Second pass catches cascading substitutions
     words = split_into_words(cleaned)
 
     if not words:
@@ -615,6 +676,37 @@ LANDING_PAGE = """<!DOCTYPE html>
 
     <!-- ── STEP 1: Input ── -->
     <div id="step1" class="step-panel">
+      <!-- Bible Chapter Selector -->
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-4">
+        <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleBibleSelector()">
+          <label class="block text-sm font-medium text-gray-300">
+            Select from Bible <span class="text-gray-500 font-normal">(81 books, KJV + Apocrypha)</span>
+          </label>
+          <svg id="bible-selector-arrow" class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div id="bible-selector-panel" class="hidden">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[200px]">
+              <label class="block text-xs text-gray-500 mb-1">Book</label>
+              <select id="bible-book" onchange="onBookChange()" class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-amber-500">
+                <option value="">-- Select a book --</option>
+              </select>
+            </div>
+            <div class="w-32">
+              <label class="block text-xs text-gray-500 mb-1">Chapter</label>
+              <select id="bible-chapter" class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-amber-500">
+                <option value="">--</option>
+              </select>
+            </div>
+            <button onclick="loadBibleChapter()" class="bg-amber-600 hover:bg-amber-500 text-black font-semibold px-5 py-2.5 rounded-lg transition-colors duration-200 text-sm">
+              Load Chapter
+            </button>
+          </div>
+          <p id="bible-load-status" class="text-xs text-gray-500 mt-2 hidden"></p>
+        </div>
+      </div>
+
+      <!-- Text Input -->
       <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
         <label class="block text-sm font-medium text-gray-300 mb-3">
           Biblical Text <span class="text-gray-500 font-normal">(KJV scripture — any length)</span>
@@ -622,7 +714,7 @@ LANDING_PAGE = """<!DOCTYPE html>
         <textarea
           id="raw-text"
           rows="14"
-          placeholder="Paste your KJV scripture or biblical story here...&#10;&#10;Example: In the beginning God created the heaven and the earth..."
+          placeholder="Select a chapter above, or paste your KJV scripture here...&#10;&#10;Example: In the beginning God created the heaven and the earth..."
           class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 placeholder-gray-600 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
         ></textarea>
         <div class="flex items-center justify-between mt-4">
@@ -1068,6 +1160,112 @@ LANDING_PAGE = """<!DOCTYPE html>
         }
       }
     }
+
+    // ── Bible Chapter Selector ─────────────────────────────────────────────────
+    let bibleBooks = null;  // cached from /api/bible/books
+
+    function toggleBibleSelector() {
+      const panel = document.getElementById('bible-selector-panel');
+      const arrow = document.getElementById('bible-selector-arrow');
+      panel.classList.toggle('hidden');
+      arrow.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)';
+      if (!panel.classList.contains('hidden') && !bibleBooks) loadBibleBooks();
+    }
+
+    async function loadBibleBooks() {
+      try {
+        const res = await fetch('/api/bible/books');
+        const data = await res.json();
+        bibleBooks = data;
+        const sel = document.getElementById('bible-book');
+        sel.innerHTML = '<option value="">-- Select a book --</option>';
+        const groups = [
+          ['Old Testament', data.old_testament],
+          ['Apocrypha', data.apocrypha],
+          ['New Testament', data.new_testament],
+        ];
+        for (const [label, books] of groups) {
+          if (!books || books.length === 0) continue;
+          const og = document.createElement('optgroup');
+          og.label = label;
+          for (const b of books) {
+            const opt = document.createElement('option');
+            opt.value = b.name;
+            opt.dataset.chapters = b.chapters;
+            opt.textContent = b.name;
+            og.appendChild(opt);
+          }
+          sel.appendChild(og);
+        }
+      } catch (e) {
+        console.error('Failed to load Bible books:', e);
+      }
+    }
+
+    function onBookChange() {
+      const sel = document.getElementById('bible-book');
+      const chSel = document.getElementById('bible-chapter');
+      chSel.innerHTML = '<option value="">--</option>';
+      const opt = sel.options[sel.selectedIndex];
+      if (!opt || !opt.dataset.chapters) return;
+      const count = parseInt(opt.dataset.chapters);
+      for (let i = 1; i <= count; i++) {
+        const o = document.createElement('option');
+        o.value = i;
+        o.textContent = 'Chapter ' + i;
+        chSel.appendChild(o);
+      }
+      if (count === 1) chSel.value = '1';
+    }
+
+    async function loadBibleChapter() {
+      const book = document.getElementById('bible-book').value;
+      const chapter = document.getElementById('bible-chapter').value;
+      if (!book || !chapter) return alert('Please select a book and chapter.');
+      const textarea = document.getElementById('raw-text');
+      if (textarea.value.trim() && !confirm('This will replace the current text. Continue?')) return;
+      const status = document.getElementById('bible-load-status');
+      status.textContent = 'Loading...';
+      status.classList.remove('hidden');
+      try {
+        const res = await fetch(`/api/bible/chapter?book=${encodeURIComponent(book)}&chapter=${chapter}`);
+        if (!res.ok) throw new Error('Chapter not found');
+        const data = await res.json();
+        textarea.value = data.text;
+        textarea.dispatchEvent(new Event('input'));
+        status.textContent = `Loaded ${book} Chapter ${chapter}`;
+        status.className = 'text-xs text-green-500 mt-2';
+        setTimeout(() => { status.classList.add('hidden'); }, 3000);
+      } catch (e) {
+        status.textContent = 'Failed to load chapter: ' + e.message;
+        status.className = 'text-xs text-red-400 mt-2';
+      }
+    }
+
+    // Auto-load bible books on page load
+    fetch('/api/bible/books').then(r => r.json()).then(data => {
+      bibleBooks = data;
+      const sel = document.getElementById('bible-book');
+      sel.innerHTML = '<option value="">-- Select a book --</option>';
+      const groups = [
+        ['Old Testament', data.old_testament],
+        ['Apocrypha', data.apocrypha],
+        ['New Testament', data.new_testament],
+      ];
+      for (const [label, books] of groups) {
+        if (!books || books.length === 0) continue;
+        const og = document.createElement('optgroup');
+        og.label = label;
+        for (const b of books) {
+          const opt = document.createElement('option');
+          opt.value = b.name;
+          opt.dataset.chapters = b.chapters;
+          opt.textContent = b.name;
+          og.appendChild(opt);
+        }
+        sel.appendChild(og);
+      }
+    }).catch(() => {});
 
     // ── Character counter ─────────────────────────────────────────────────────
     document.getElementById('raw-text').addEventListener('input', function() {

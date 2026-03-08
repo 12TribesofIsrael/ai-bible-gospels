@@ -754,6 +754,146 @@ def kjv_narration_fix(text: str) -> str:
     # Fix "&" → "and" for narration
     text = re.sub(r'\s+&\s+', ' and ', text)
 
+    # ── GENERIC CATCH-ALL PATTERNS (catches 1611 words not individually listed) ──
+    # These handle systematic spelling conventions across all inflected forms.
+
+    # Generic: "ue" → "ve" in word (handles belieue/belieued/belieuing/belieues)
+    # 1611 KJV used "u" where modern English uses "v" inside words
+    _ue_keep = {'true', 'blue', 'due', 'sue', 'rue', 'hue', 'cue', 'clue', 'glue',
+                'value', 'argue', 'virtue', 'statue', 'tongue', 'league', 'plague',
+                'vague', 'vogue', 'rogue', 'unique', 'technique', 'antique',
+                'continue', 'issue', 'tissue', 'rescue', 'avenue', 'revenue',
+                'venue', 'pursue', 'ensue', 'ague', 'queue', 'catalogue',
+                'dialogue', 'monologue', 'prologue', 'epilogue', 'fatigue',
+                'intrigue', 'oblique', 'physique', 'mystique', 'boutique',
+                'residue', 'barbecue', 'subdue', 'imbue', 'accrue', 'construe'}
+    def _fix_ue(m):
+        word = m.group(0)
+        if word.lower() in _ue_keep:
+            return word
+        # Replace ALL "ue" with "ve" — handles belieue→believe, reueiue→reveive
+        return re.sub(r'ue', 've', word)
+    text = re.sub(r'\b\w*[aeioy]ue\w*\b', _fix_ue, text, flags=re.IGNORECASE)
+
+    # Generic: trailing -inge → -ing (e.g., "blessinge" → "blessing", "cominge" → "coming")
+    text = re.sub(r'\b(\w{3,})inge\b', r'\1ing', text, flags=re.IGNORECASE)
+
+    # Generic: trailing -nge with suffix → fix (e.g., "blessinges" → "blessings")
+    text = re.sub(r'\b(\w{3,})inges\b', r'\1ings', text, flags=re.IGNORECASE)
+
+    # Generic: -nne → -n (e.g., "beginne" → "begin", "sinne" → "sin")
+    _nne_keep = {'anne', 'joanne', 'suzanne', 'dianne', 'antenne'}
+    text = re.sub(r'\b(\w{3,})nne\b', lambda m: m.group(0) if m.group(0).lower() in _nne_keep
+        else m.group(1) + 'n', text, flags=re.IGNORECASE)
+
+    # Generic: -sse → -ss (e.g., "blesse" → "bless", "passe" → "pass")
+    _sse_keep = {'finesse', 'largesse', 'noblesse', 'tendresse'}
+    text = re.sub(r'\b(\w{3,})sse\b', lambda m: m.group(0) if m.group(0).lower() in _sse_keep
+        else m.group(1) + 'ss', text, flags=re.IGNORECASE)
+
+    # Generic: -ie → -y for nouns 4+ chars (e.g., "envie" → "envy", "prophesie" → "prophesy")
+    _ie_keep = {'auntie', 'birdie', 'boogie', 'brownie', 'calorie', 'collie', 'cookie',
+                'dearie', 'eerie', 'genie', 'goodie', 'hippie', 'junkie', 'lassie',
+                'magpie', 'movie', 'necktie', 'pixie', 'prairie', 'smoothie', 'zombie',
+                'die', 'lie', 'tie', 'pie', 'vie', 'hie'}
+    text = re.sub(r'\b(\w{3,})ie\b', lambda m: m.group(0) if m.group(0).lower() in _ie_keep
+        else m.group(1) + 'y', text, flags=re.IGNORECASE)
+
+    # Generic: -lle → -l (e.g., "fulfille" → "fulfil")
+    _lle_keep = {'gazelle', 'belle', 'mademoiselle', 'braille', 'grille', 'ville'}
+    text = re.sub(r'\b(\w{3,})lle\b', lambda m: m.group(0) if m.group(0).lower() in _lle_keep
+        else m.group(1) + 'l', text, flags=re.IGNORECASE)
+
+    # Generic: -nesse → -ness (e.g., "fulnesse" → "fulness", "goodnesse" → "goodness")
+    text = re.sub(r'\b(\w{3,})nesse\b', r'\1ness', text, flags=re.IGNORECASE)
+
+    # Generic: -ousnes → -ousness
+    text = re.sub(r'\b(\w+)ousnes\b', r'\1ousness', text, flags=re.IGNORECASE)
+
+    # Generic: trailing -es on words that don't need it
+    # e.g., "spoiles" → "spoils", "crownes" → "crowns"
+    text = re.sub(r'\b(\w{3,}[ln])es\b', lambda m: m.group(0) if m.group(0).lower() in
+        {'candles', 'handles', 'bundles', 'spindles', 'needles', 'riddles',
+         'battles', 'bottles', 'castles', 'titles', 'articles', 'angles',
+         'singles', 'temples', 'peoples', 'samples', 'examples', 'muscles',
+         'circles', 'nobles', 'stables', 'tables', 'cables', 'fables',
+         'enables', 'troubles', 'doubles', 'couples', 'bubbles', 'pebbles',
+         'struggles', 'puzzles', 'nozzles', 'muzzles', 'buckles', 'knuckles',
+         'pickles', 'wrinkles', 'sparkles', 'acles', 'icles', 'uncles',
+         'principles', 'particles', 'obstacles', 'miracles', 'spectacles',
+         'tentacles', 'chronicles', 'vehicles', 'rules', 'mules', 'holes',
+         'poles', 'roles', 'soles', 'wales', 'tales', 'males', 'females',
+         'sales', 'scales', 'whales', 'vales', 'bales', 'gales', 'ales',
+         'miles', 'files', 'tiles', 'piles', 'smiles', 'styles', 'cycles',
+         'lines', 'mines', 'vines', 'wines', 'pines', 'fines', 'dines',
+         'shines', 'shrines', 'spines', 'stones', 'bones', 'tones', 'zones',
+         'cones', 'drones', 'thrones', 'scenes', 'genes', 'lanes', 'canes',
+         'planes', 'cranes', 'manes', 'panes', 'flames', 'names', 'games',
+         'frames', 'tunes', 'dunes', 'prunes', 'plumes', 'fumes', 'volumes',
+         'assumes', 'resumes', 'consumes', 'perfumes', 'costumes',
+         'values', 'issues', 'tissues', 'venues', 'avenues', 'revenues',
+         'statues', 'virtues', 'argues', 'continues', 'rescues', 'pursues',
+         'gentiles', 'israelites', 'disciples', 'apostles', 'peoples'}
+        else m.group(0), text, flags=re.IGNORECASE)
+
+    # Specific remaining 1611 words commonly missed
+    text = re.sub(r'\bspoiles\b', 'spoils', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bhoste\b', 'host', text, flags=re.IGNORECASE)
+    text = re.sub(r'\byeeres\b', 'years', text, flags=re.IGNORECASE)
+    text = re.sub(r'\byeere\b', 'year', text, flags=re.IGNORECASE)
+    text = re.sub(r'\byeare\b', 'year', text, flags=re.IGNORECASE)
+    text = re.sub(r'\byeares\b', 'years', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bcrownes\b', 'crowns', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bhundreth\b', 'hundred', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bperswaded\b', 'persuaded', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bperswade\b', 'persuade', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bdeuise\b', 'device', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bGreekes\b', 'Greeks', text)
+    text = re.sub(r'\bgreekes\b', 'Greeks', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bwan\b', 'won', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bholdes\b', 'holds', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bcoate\b', 'coat', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bwarres\b', 'wars', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bprayse\b', 'praise', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bprayses\b', 'praises', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bwhilest\b', 'while', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bwarre\b', 'war', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bkinges\b', 'kings', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bprinces\b', 'princes', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bcaptaines\b', 'captains', text, flags=re.IGNORECASE)
+    text = re.sub(r'\brebelles\b', 'rebels', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bidoles\b', 'idols', text, flags=re.IGNORECASE)
+    text = re.sub(r'\btemples\b', 'temples', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bsacrifises\b', 'sacrifices', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bsacrifice\b', 'sacrifice', text, flags=re.IGNORECASE)
+    text = re.sub(r'\babominacion\b', 'abomination', text, flags=re.IGNORECASE)
+    text = re.sub(r'\boppresse\b', 'oppress', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bpossesse\b', 'possess', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bincreased\b', 'increased', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bslayne\b', 'slain', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bslaine\b', 'slain', text, flags=re.IGNORECASE)
+    text = re.sub(r'\btenne\b', 'ten', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bfiftie\b', 'fifty', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bthirtie\b', 'thirty', text, flags=re.IGNORECASE)
+    text = re.sub(r'\btwentie\b', 'twenty', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bhundred\b', 'hundred', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bthousande\b', 'thousand', text, flags=re.IGNORECASE)
+
+    # 1 Maccabees / Apocrypha additions
+    text = re.sub(r'\bChettum\b', 'Kittim', text)              # Greek/Latin spelling of Kittim
+    text = re.sub(r'\bbin\b', 'been', text, flags=re.IGNORECASE)  # archaic "bin" = "been"
+    text = re.sub(r'\bheerein\b', 'herein', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bcustomes\b', 'customs', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bioyned\b', 'joined', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bmischiefe\b', 'mischief', text, flags=re.IGNORECASE)
+    text = re.sub(r'\blicence\b', 'license', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bordinances\b', 'ordinances', text, flags=re.IGNORECASE)  # already correct
+
+    # Generic I→J at word start for remaining cases (ioyned, iudge, etc.)
+    # Only applies when followed by a lowercase vowel (avoid matching proper names handled above)
+    text = re.sub(r'\bio([aeou][a-z])', lambda m: 'jo' + m.group(1), text)
+    text = re.sub(r'\bIo([aeou][a-z])', lambda m: 'Jo' + m.group(1), text)
+
     return text
 
 def split_into_words(text):
