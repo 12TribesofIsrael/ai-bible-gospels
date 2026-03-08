@@ -206,9 +206,9 @@ async def api_status():
 
     Phases (returned as JSON):
       idle            → no generation running
-      perplexity      → n8n/Perplexity generating scenes  (0–60 s, time-estimated)
-      elevenlabs      → ElevenLabs synthesizing audio      (60–180 s, time-estimated)
-      json2video      → JSON2Video rendering               (real API poll)
+      perplexity      → n8n/Perplexity generating scenes  (0–90 s, time-estimated)
+      fal_generation  → FLUX images + Kling videos         (90–2000 s, time-estimated)
+      json2video      → JSON2Video assembling video        (2000 s+, real API poll)
       done            → video_url is ready
       error           → something went wrong
     """
@@ -223,15 +223,17 @@ async def api_status():
         return {"phase": "done", "elapsed": elapsed,
                 "video_url": generation_state["video_url"]}
 
-    # ── Phase 1: n8n / Perplexity (0–60 s) ───────────────────────────────────
-    if elapsed < 60:
+    # ── Phase 1: n8n / Perplexity (0–90 s) ──────────────────────────────────
+    if elapsed < 90:
         return {"phase": "perplexity", "elapsed": elapsed}
 
-    # ── Phase 2: ElevenLabs (60–180 s) ───────────────────────────────────────
-    if elapsed < 180:
-        return {"phase": "elevenlabs", "elapsed": elapsed}
+    # ── Phase 2: fal.ai FLUX + Kling generation (90–2000 s) ─────────────────
+    if elapsed < 2000:
+        scene_estimate = min(20, int((elapsed - 90) / 90) + 1)
+        return {"phase": "fal_generation", "elapsed": elapsed,
+                "scenes_estimated": scene_estimate}
 
-    # ── Phase 3: JSON2Video (180 s+) — poll real API ─────────────────────────
+    # ── Phase 3: JSON2Video assembly (2000 s+) — poll real API ───────────────
     load_dotenv(find_dotenv(), override=True)
     api_key = os.getenv("JSON2VIDEO_API_KEY", "")
 
@@ -571,14 +573,14 @@ LANDING_PAGE = """<!DOCTYPE html>
     <div class="text-amber-500 text-2xl">✦</div>
     <div>
       <h1 class="title-font text-xl font-semibold text-amber-400 tracking-wide">Biblical Cinematic Generator</h1>
-      <p class="text-xs text-gray-500 mt-0.5">Perplexity AI · ElevenLabs · JSON2Video · n8n</p>
+      <p class="text-xs text-gray-500 mt-0.5">Perplexity AI · fal.ai FLUX + Kling · ElevenLabs · JSON2Video · n8n</p>
     </div>
     <div class="ml-auto flex items-center gap-4">
       <a href="#step4" onclick="document.getElementById('step4').scrollIntoView({behavior:'smooth'}); return false;"
         class="text-xs text-purple-400 hover:text-purple-300 border border-purple-800 hover:border-purple-600 px-3 py-1.5 rounded-lg transition-colors">
         ▼ Post-Production
       </a>
-      <span class="text-xs text-gray-600">v6.1.0 · ~$1.27/video · 8–13 min</span>
+      <span class="text-xs text-gray-600">v8.0 · ~$7.31/video · 35–45 min</span>
     </div>
   </header>
 
@@ -711,11 +713,11 @@ LANDING_PAGE = """<!DOCTYPE html>
           <div id="step-perplexity" class="flex items-center gap-3 text-gray-400">
             <span id="icon-perplexity" class="text-gray-600">○</span> Perplexity AI generating 20 scenes...
           </div>
-          <div id="step-elevenlabs" class="flex items-center gap-3 text-gray-400">
-            <span id="icon-elevenlabs" class="text-gray-600">○</span> ElevenLabs synthesizing narration...
+          <div id="step-fal" class="flex items-center gap-3 text-gray-400">
+            <span id="icon-fal" class="text-gray-600">○</span> fal.ai generating FLUX images + Kling video clips...
           </div>
           <div id="step-json2video" class="flex items-center gap-3 text-gray-400">
-            <span id="icon-json2video" class="text-gray-600">○</span> JSON2Video rendering with Ken Burns effects...
+            <span id="icon-json2video" class="text-gray-600">○</span> JSON2Video assembling final video...
           </div>
         </div>
 
@@ -1014,38 +1016,39 @@ LANDING_PAGE = """<!DOCTYPE html>
       switch (data.phase) {
         case 'perplexity': {
           setStageIcon('perplexity', 'active');
-          setStageIcon('elevenlabs', 'pending');
+          setStageIcon('fal', 'pending');
           setStageIcon('json2video', 'pending');
-          const pct = Math.min(Math.floor(elapsed / 60 * 20), 20);
+          const pct = Math.min(Math.floor(elapsed / 90 * 10), 10);
           setBar(pct, 'Perplexity AI generating 20 scenes...', false);
           break;
         }
-        case 'elevenlabs': {
+        case 'fal_generation': {
           setStageIcon('perplexity', 'done');
-          setStageIcon('elevenlabs', 'active');
+          setStageIcon('fal', 'active');
           setStageIcon('json2video', 'pending');
-          const pct = 20 + Math.min(Math.floor((elapsed - 60) / 120 * 15), 15);
-          setBar(pct, 'ElevenLabs synthesizing narration...', false);
+          const sceneEst = data.scenes_estimated || 0;
+          const pct = 10 + Math.min(Math.floor(sceneEst / 20 * 75), 75);
+          setBar(pct, 'fal.ai: generating scene ' + sceneEst + '/20 (FLUX image + Kling video)...', false);
           break;
         }
         case 'json2video': {
           setStageIcon('perplexity', 'done');
-          setStageIcon('elevenlabs', 'done');
+          setStageIcon('fal', 'done');
           setStageIcon('json2video', 'active');
           const rt = data.realtime === true;
           const j2vPct = data.status === 'queued'
-            ? 36
-            : Math.min(36 + Math.floor((elapsed - 180) / 420 * 63), 99);
+            ? 86
+            : Math.min(86 + Math.floor((elapsed - 2000) / 420 * 13), 99);
           const label = data.status === 'queued'
             ? 'JSON2Video: queued — waiting for render slot...'
-            : 'JSON2Video rendering with Ken Burns effects...';
+            : 'JSON2Video assembling final video...';
           setBar(j2vPct, label, rt);
           break;
         }
         case 'done': {
           stopPolling();
           setStageIcon('perplexity', 'done');
-          setStageIcon('elevenlabs', 'done');
+          setStageIcon('fal', 'done');
           setStageIcon('json2video', 'done');
           setBar(100, 'Video ready!', true);
           document.getElementById('step3-icon').textContent = '✅';
@@ -1192,7 +1195,7 @@ LANDING_PAGE = """<!DOCTYPE html>
     function startOver() {
       stopPolling();
       // Reset step 3 visual state
-      ['perplexity', 'elevenlabs', 'json2video'].forEach(id => setStageIcon(id, 'pending'));
+      ['perplexity', 'fal', 'json2video'].forEach(id => setStageIcon(id, 'pending'));
       document.getElementById('progress-bar').style.width = '0%';
       document.getElementById('progress-percent').textContent = '0%';
       document.getElementById('progress-elapsed').textContent = '0:00';

@@ -20,6 +20,22 @@
 ### DO NOT MODIFY
 This template is stable and proven. If you need changes, create a new test template instead. See `archive/ARCHIVE_README.md` for why.
 
+## v8.0 — Kling AI Video Motion Template (NEW)
+
+**File:** `JSON2Video-Template-v8-Kling.json`
+**Status:** Testing (not yet production)
+
+### What It Does
+- 20 biblical scenes with Kling AI video clips (real motion, not Ken Burns)
+- ElevenLabs narration
+- HD 1920×1080 output
+- Uses `type: "video"` elements with `src` URLs from fal.ai Kling
+
+### Variables per scene
+- `sceneN_videoUrl` — Kling video clip URL
+- `sceneN_voiceOverText` — narration text
+- `sceneN_overlaidText` — subtitle text
+
 ## Old Templates
 
 All old/broken templates have been moved to `archive/`. Do not use them.

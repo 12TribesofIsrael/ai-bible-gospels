@@ -1,0 +1,512 @@
+{
+  "comment": "v8.0 - 20 Scenes - Kling AI Video Motion + ElevenLabs (no title card)",
+  "resolution": "full-hd",
+  "quality": "high",
+  "variables": {
+    "totalScenes": "{{totalScenes}}",
+    "scene1_videoUrl": "{{scene1_videoUrl}}",
+    "scene1_voiceOverText": "{{scene1_voiceOverText}}",
+    "scene1_overlaidText": "{{scene1_overlaidText}}",
+    "scene2_videoUrl": "{{scene2_videoUrl}}",
+    "scene2_voiceOverText": "{{scene2_voiceOverText}}",
+    "scene2_overlaidText": "{{scene2_overlaidText}}",
+    "scene3_videoUrl": "{{scene3_videoUrl}}",
+    "scene3_voiceOverText": "{{scene3_voiceOverText}}",
+    "scene3_overlaidText": "{{scene3_overlaidText}}",
+    "scene4_videoUrl": "{{scene4_videoUrl}}",
+    "scene4_voiceOverText": "{{scene4_voiceOverText}}",
+    "scene4_overlaidText": "{{scene4_overlaidText}}",
+    "scene5_videoUrl": "{{scene5_videoUrl}}",
+    "scene5_voiceOverText": "{{scene5_voiceOverText}}",
+    "scene5_overlaidText": "{{scene5_overlaidText}}",
+    "scene6_videoUrl": "{{scene6_videoUrl}}",
+    "scene6_voiceOverText": "{{scene6_voiceOverText}}",
+    "scene6_overlaidText": "{{scene6_overlaidText}}",
+    "scene7_videoUrl": "{{scene7_videoUrl}}",
+    "scene7_voiceOverText": "{{scene7_voiceOverText}}",
+    "scene7_overlaidText": "{{scene7_overlaidText}}",
+    "scene8_videoUrl": "{{scene8_videoUrl}}",
+    "scene8_voiceOverText": "{{scene8_voiceOverText}}",
+    "scene8_overlaidText": "{{scene8_overlaidText}}",
+    "scene9_videoUrl": "{{scene9_videoUrl}}",
+    "scene9_voiceOverText": "{{scene9_voiceOverText}}",
+    "scene9_overlaidText": "{{scene9_overlaidText}}",
+    "scene10_videoUrl": "{{scene10_videoUrl}}",
+    "scene10_voiceOverText": "{{scene10_voiceOverText}}",
+    "scene10_overlaidText": "{{scene10_overlaidText}}",
+    "scene11_videoUrl": "{{scene11_videoUrl}}",
+    "scene11_voiceOverText": "{{scene11_voiceOverText}}",
+    "scene11_overlaidText": "{{scene11_overlaidText}}",
+    "scene12_videoUrl": "{{scene12_videoUrl}}",
+    "scene12_voiceOverText": "{{scene12_voiceOverText}}",
+    "scene12_overlaidText": "{{scene12_overlaidText}}",
+    "scene13_videoUrl": "{{scene13_videoUrl}}",
+    "scene13_voiceOverText": "{{scene13_voiceOverText}}",
+    "scene13_overlaidText": "{{scene13_overlaidText}}",
+    "scene14_videoUrl": "{{scene14_videoUrl}}",
+    "scene14_voiceOverText": "{{scene14_voiceOverText}}",
+    "scene14_overlaidText": "{{scene14_overlaidText}}",
+    "scene15_videoUrl": "{{scene15_videoUrl}}",
+    "scene15_voiceOverText": "{{scene15_voiceOverText}}",
+    "scene15_overlaidText": "{{scene15_overlaidText}}",
+    "scene16_videoUrl": "{{scene16_videoUrl}}",
+    "scene16_voiceOverText": "{{scene16_voiceOverText}}",
+    "scene16_overlaidText": "{{scene16_overlaidText}}",
+    "scene17_videoUrl": "{{scene17_videoUrl}}",
+    "scene17_voiceOverText": "{{scene17_voiceOverText}}",
+    "scene17_overlaidText": "{{scene17_overlaidText}}",
+    "scene18_videoUrl": "{{scene18_videoUrl}}",
+    "scene18_voiceOverText": "{{scene18_voiceOverText}}",
+    "scene18_overlaidText": "{{scene18_overlaidText}}",
+    "scene19_videoUrl": "{{scene19_videoUrl}}",
+    "scene19_voiceOverText": "{{scene19_voiceOverText}}",
+    "scene19_overlaidText": "{{scene19_overlaidText}}",
+    "scene20_videoUrl": "{{scene20_videoUrl}}",
+    "scene20_voiceOverText": "{{scene20_voiceOverText}}",
+    "scene20_overlaidText": "{{scene20_overlaidText}}"
+  },
+  "scenes": [
+    {
+      "id": "scene1_biblical",
+      "comment": "Biblical Scene 1 - {{scene1_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene1_bg",
+          "type": "video",
+          "src": "{{scene1_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene1_voice",
+          "type": "voice",
+          "text": "{{scene1_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene2_biblical",
+      "comment": "Biblical Scene 2 - {{scene2_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene2_bg",
+          "type": "video",
+          "src": "{{scene2_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene2_voice",
+          "type": "voice",
+          "text": "{{scene2_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene3_biblical",
+      "comment": "Biblical Scene 3 - {{scene3_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene3_bg",
+          "type": "video",
+          "src": "{{scene3_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene3_voice",
+          "type": "voice",
+          "text": "{{scene3_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene4_biblical",
+      "comment": "Biblical Scene 4 - {{scene4_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene4_bg",
+          "type": "video",
+          "src": "{{scene4_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene4_voice",
+          "type": "voice",
+          "text": "{{scene4_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene5_biblical",
+      "comment": "Biblical Scene 5 - {{scene5_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene5_bg",
+          "type": "video",
+          "src": "{{scene5_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene5_voice",
+          "type": "voice",
+          "text": "{{scene5_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene6_biblical",
+      "comment": "Biblical Scene 6 - {{scene6_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene6_bg",
+          "type": "video",
+          "src": "{{scene6_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene6_voice",
+          "type": "voice",
+          "text": "{{scene6_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene7_biblical",
+      "comment": "Biblical Scene 7 - {{scene7_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene7_bg",
+          "type": "video",
+          "src": "{{scene7_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene7_voice",
+          "type": "voice",
+          "text": "{{scene7_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene8_biblical",
+      "comment": "Biblical Scene 8 - {{scene8_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene8_bg",
+          "type": "video",
+          "src": "{{scene8_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene8_voice",
+          "type": "voice",
+          "text": "{{scene8_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene9_biblical",
+      "comment": "Biblical Scene 9 - {{scene9_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene9_bg",
+          "type": "video",
+          "src": "{{scene9_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene9_voice",
+          "type": "voice",
+          "text": "{{scene9_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene10_biblical",
+      "comment": "Biblical Scene 10 - {{scene10_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene10_bg",
+          "type": "video",
+          "src": "{{scene10_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene10_voice",
+          "type": "voice",
+          "text": "{{scene10_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene11_biblical",
+      "comment": "Biblical Scene 11 - {{scene11_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene11_bg",
+          "type": "video",
+          "src": "{{scene11_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene11_voice",
+          "type": "voice",
+          "text": "{{scene11_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene12_biblical",
+      "comment": "Biblical Scene 12 - {{scene12_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene12_bg",
+          "type": "video",
+          "src": "{{scene12_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene12_voice",
+          "type": "voice",
+          "text": "{{scene12_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene13_biblical",
+      "comment": "Biblical Scene 13 - {{scene13_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene13_bg",
+          "type": "video",
+          "src": "{{scene13_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene13_voice",
+          "type": "voice",
+          "text": "{{scene13_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene14_biblical",
+      "comment": "Biblical Scene 14 - {{scene14_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene14_bg",
+          "type": "video",
+          "src": "{{scene14_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene14_voice",
+          "type": "voice",
+          "text": "{{scene14_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene15_biblical",
+      "comment": "Biblical Scene 15 - {{scene15_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene15_bg",
+          "type": "video",
+          "src": "{{scene15_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene15_voice",
+          "type": "voice",
+          "text": "{{scene15_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene16_biblical",
+      "comment": "Biblical Scene 16 - {{scene16_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene16_bg",
+          "type": "video",
+          "src": "{{scene16_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene16_voice",
+          "type": "voice",
+          "text": "{{scene16_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene17_biblical",
+      "comment": "Biblical Scene 17 - {{scene17_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene17_bg",
+          "type": "video",
+          "src": "{{scene17_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene17_voice",
+          "type": "voice",
+          "text": "{{scene17_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene18_biblical",
+      "comment": "Biblical Scene 18 - {{scene18_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene18_bg",
+          "type": "video",
+          "src": "{{scene18_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene18_voice",
+          "type": "voice",
+          "text": "{{scene18_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene19_biblical",
+      "comment": "Biblical Scene 19 - {{scene19_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene19_bg",
+          "type": "video",
+          "src": "{{scene19_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene19_voice",
+          "type": "voice",
+          "text": "{{scene19_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene20_biblical",
+      "comment": "Biblical Scene 20 - {{scene20_overlaidText}} - Kling AI Video",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene20_bg",
+          "type": "video",
+          "src": "{{scene20_videoUrl}}",
+          "resize": "cover"
+        },
+        {
+          "id": "scene20_voice",
+          "type": "voice",
+          "text": "{{scene20_voiceOverText}}",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    }
+  ],
+  "elements": [
+    {
+      "id": "movie_subtitles",
+      "type": "subtitles",
+      "language": "en",
+      "model": "default",
+      "settings": {
+        "style": "classic",
+        "font-family": "Oswald Bold",
+        "font-size": 80,
+        "position": "bottom-center",
+        "line-color": "#CCCCCC",
+        "word-color": "#FFFF00",
+        "outline-color": "#000000",
+        "outline-width": 8,
+        "shadow-color": "#000000",
+        "shadow-offset": 6,
+        "max-words-per-line": 4
+      }
+    }
+  ],
+  "id": "yia2WweBcQAohYpBbByf"
+}

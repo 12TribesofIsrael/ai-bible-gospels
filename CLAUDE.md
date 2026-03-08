@@ -65,22 +65,24 @@ pytest tests/
 
 ### Stack
 - **FastAPI** (web server + API), **Python** (text processing), **n8n** (video pipeline orchestration)
-- **Perplexity AI** (scene gen), **ElevenLabs** (voice), **JSON2Video** (rendering)
+- **Perplexity AI** (scene gen), **fal.ai** (FLUX + Kling), **ElevenLabs** (voice), **JSON2Video** (assembly)
 
-### Full Pipeline
+### Full Pipeline (v8.0)
 ```
 Browser (http://localhost:8000)
   → POST /api/clean    FastAPI server runs text processor → returns cleaned sections
   → POST /api/generate FastAPI POSTs to n8n webhook
       → n8n workflow:
           → Perplexity sonar-pro    → 20 cinematic scene descriptions
+          → fal.ai FLUX Pro         → generate image per scene
+          → fal.ai Kling v1.6       → animate each image to 5s video clip
           → ElevenLabs              → narration audio (214 WPM)
-          → JSON2Video (Ken Burns)  → renders 20-scene HD video
+          → JSON2Video              → assembles video clips into final MP4
   → GET  /api/status   Browser polls every 6s → real-time progress bar
   → Final MP4 (8–13 min) with Download button
 ```
 
-**Cost:** ~$1.27/video | **Time:** 8–13 min | **Version:** v7.2 (current production)
+**Cost:** ~$4.51/video (Kling Standard) | **Time:** ~15-25 min | **Version:** v8.0 (testing)
 
 ### Start the web app
 ```bash
@@ -117,8 +119,10 @@ python app.py
 | [workflows/biblical-cinematic/server/requirements.txt](workflows/biblical-cinematic/server/requirements.txt) | Server dependencies |
 | [workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py](workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py) | KJV text cleaner/splitter (imported by server) |
 | [workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v7.2.json](workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v7.2.json) | **Current production workflow** — Import into n8n (v7.2: field-name-anchored JSON extraction, proven stable) |
+| [workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v8.0.json](workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v8.0.json) | **v8.0 Kling workflow** — FLUX + Kling AI video motion (testing) |
 | [workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v6.0.2.json](workflows/biblical-cinematic/n8n/Biblical-Video-Workflow-v6.0.2.json) | Legacy v6 reference — do NOT edit or use |
-| [workflows/biblical-cinematic/templates/JSON2Video-Template-v7-Phase1_no_card.json](workflows/biblical-cinematic/templates/JSON2Video-Template-v7-Phase1_no_card.json) | **Current production template** — Import into JSON2Video as template ID `h5yD4ZbxhCPNFQ2WoVUs` (20 scenes, Ken Burns, proven working baseline) |
+| [workflows/biblical-cinematic/templates/JSON2Video-Template-v7-Phase1_no_card.json](workflows/biblical-cinematic/templates/JSON2Video-Template-v7-Phase1_no_card.json) | v7.2 production template — 20 scenes, Ken Burns, proven working baseline |
+| [workflows/biblical-cinematic/templates/JSON2Video-Template-v8-Kling.json](workflows/biblical-cinematic/templates/JSON2Video-Template-v8-Kling.json) | **v8.0 Kling template** — 20 scenes with video elements (testing) |
 | [workflows/biblical-cinematic/scripts/post_produce.py](workflows/biblical-cinematic/scripts/post_produce.py) | FFmpeg post-production — concat intro/outro, overlay logo, mix music |
 | [workflows/biblical-cinematic/scripts/batch_post_produce.py](workflows/biblical-cinematic/scripts/batch_post_produce.py) | Batch mode — process all videos in output/raw/ at once |
 | [workflows/biblical-cinematic/scripts/upload_youtube.py](workflows/biblical-cinematic/scripts/upload_youtube.py) | YouTube uploader — OAuth2, auto-generates title/description/thumbnail, uploads as unlisted |
@@ -207,7 +211,7 @@ See [.env.example](.env.example) for all keys. The `.env` file lives at the work
 | Variable | Used By |
 |---|---|
 | `OPENAI_API_KEY` | General pipeline (GPT-4o + TTS) |
-| `FAL_KEY` | General pipeline (FLUX + Kling); also needed in n8n as Header Auth for v7 |
+| `FAL_KEY` | General pipeline (FLUX + Kling); **required in n8n env vars for v8.0** (FLUX image gen + Kling video) |
 | `N8N_WEBHOOK_URL` | Biblical web app → triggers n8n workflow |
 | `PERPLEXITY_API_KEY` | Reference only (configured inside n8n) |
 | `ELEVENLABS_API_KEY` | Reference only (configured inside n8n) |

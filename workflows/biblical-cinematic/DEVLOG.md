@@ -8,6 +8,42 @@ Separate from:
 
 ---
 
+## v8.0 — Kling AI Video Motion  [2026-03-08]
+
+**Status:** Testing (not yet production)
+**Cost:** ~$7.31/video
+**Time:** ~35–45 min
+**Workflow file:** `n8n/Biblical-Video-Workflow-v8.0.json`
+**Template:** `templates/JSON2Video-Template-v8-Kling.json`
+
+### Architecture change
+
+Before (v7.2): n8n sends `imagePrompt` → JSON2Video generates FLUX images internally + Ken Burns simulation
+After (v8.0): n8n generates FLUX image via fal.ai → Kling v1.6 Standard animates to 5s video clip → video URL → JSON2Video assembles clips
+
+### What changed
+- All image generation moved from JSON2Video to fal.ai FLUX Pro (external, n8n-controlled)
+- Kling v1.6 Standard image-to-video for real AI motion (robes move, wind blows, fire flickers)
+- JSON2Video template uses `type: "video"` elements with `src` URLs instead of `type: "image"` with `prompt`
+- All Ken Burns variables removed (zoom, pan, panDistance, animation, motionType, etc.)
+- `server/app.py` updated with `fal_generation` phase (90–2000s) for progress tracking
+- Single Code node handles entire FLUX+Kling loop using fetch() — no new n8n nodes needed
+
+### Cost breakdown
+| Item | Unit cost | Count | Total |
+|---|---|---|---|
+| Perplexity sonar-pro | ~$0.03 | 1 | $0.03 |
+| fal.ai FLUX Pro | ~$0.055/image | 20 | $1.10 |
+| fal.ai Kling v1.6 Standard | ~$0.14/clip | 20 | $2.80 |
+| ElevenLabs (via JSON2Video) | ~$0.18 | 1 | $0.18 |
+| JSON2Video (assembly only) | ~$0.40 | 1 | $0.40 |
+| **Total** | | | **~$4.51** |
+
+### Risk
+n8n cloud plans often have 30-min execution timeout. Kling Standard (~45s/clip) keeps total at ~15 min, well within limit.
+
+---
+
 ## v7.2 — Stable Production Release  [2026-03-07 + 2026-03-08]
 
 **Status:** ✓ Production (stable, tested)

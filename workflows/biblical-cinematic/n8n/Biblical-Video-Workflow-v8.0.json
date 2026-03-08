@@ -1,0 +1,459 @@
+{
+  "name": "Biblical Video Workflow v8.0 - Kling AI Motion",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Get the input text from previous node\nconst inputText = $('Bible Chapter Text Input').item.json.inputText;\n\n// ENHANCED Build the request payload with improved Black Hebrew Israelite representation\nconst requestPayload = {\n  model: \"sonar-pro\",\n  messages: [{\n    role: \"user\", \n    content: `You are a Biblical storytelling and video production expert specializing in authentic Black Hebrew Israelite biblical content. Create a script for a PRODUCTION-QUALITY 20-scene video that narrates the Bible chapter content provided: \"${inputText}\" exactly as it is—word for word and line for line. Do not summarize or paraphrase any part of the biblical text. Instead, break the Bible chapter into EXACTLY 20 SCENES that facilitate the creation of engaging biblical video content for a full-length production video.\n\nCRITICAL VISUAL REQUIREMENTS - READ CAREFULLY:\n- MANDATORY: ALL human characters must be depicted as Black African Hebrew Israelites with dark melanated skin, natural hair (locs/braids), wearing traditional Hebrew garments with tzitzit (fringes)\n- FORBIDDEN: No Caucasian, white, European, or light-skinned characters unless explicitly specified in the biblical text\n- REQUIRED CLOTHING: Traditional Hebrew robes, head coverings, prayer shawls with visible fringes (tzitzit), sandals\n- SKIN TONE: Rich dark melanated skin tones exclusively - use terms like \"deeply melanated,\" \"rich dark skin,\" \"African heritage\"\n- HAIR: Natural Black hair textures - locs, braids, afros, or covered with traditional head wraps\n\nFor each non-empty verse or sentence of the biblical text, create a separate scene where both the overlaid text and the voice-over text match the biblical text exactly.\n\nIf a verse is too short to meet the minimum voice-over text length of 20 words, combine it with the following verse(s) without altering the original biblical wording.\n\nYour output must be in JSON format following this exact schema:\n\n{\n  \"scenes\": [\n    {\n      \"overlaidText\": \"Direct biblical phrase from the text (3-8 words)\",\n      \"voiceOverText\": \"Exact biblical text word-for-word (20+ words minimum)\",\n      \"imagePrompt\": \"MANDATORY: Black Hebrew Israelite with deeply melanated skin, locs/natural hair, wearing traditional Hebrew garments with visible tzitzit fringes - [detailed biblical scene description] - photorealistic, ancient Middle Eastern setting, reverent biblical atmosphere\",\n      \"motionDescription\": \"Natural motion for this moment — e.g. 'Camera slowly pulls back as figure raises hands toward golden sky' or 'Robes ripple in wind, crowd parts like a wave'\"\n    }\n  ]\n}\n\nENHANCED IMAGE PROMPT REQUIREMENTS:\n- ALWAYS start imagePrompt with: \"Black Hebrew Israelite with deeply melanated skin, natural hair (locs/braids), wearing traditional Hebrew robes with visible tzitzit fringes\"\n- ADD specific scene details after the character description\n- INCLUDE: \"photorealistic, ancient biblical times, Middle Eastern landscape, reverent spiritual atmosphere\"\n- CAMERA ANGLE VARIETY: Alternate close-up / medium shot / wide shot / aerial — never same angle twice in a row.\n- LIGHTING CONTRAST: Specify a dramatic light source per scene — \"shaft of divine light from above\", \"torch-lit darkness with one focal point\", \"golden hour rays behind silhouette\".\n- AVOID: Any language that could result in European/Caucasian features\n- EMPHASIZE: \"Rich dark skin tone,\" \"African Hebrew heritage,\" \"traditional biblical garments\"\n\nIMPORTANT GUIDELINES:\n- Use the biblical text exactly as provided—word for word and line for line\n- Create a separate scene for each verse or sentence in the biblical text\n- VoiceOverText must be the exact biblical wording, no paraphrasing\n- OverlaidText should be direct quotes from the biblical text (3-8 words)\n- ImagePrompts MUST depict Black Hebrew Israelites with melanated skin and traditional garments\n- You MUST create EXACTLY 20 scenes regardless of input text length - distribute the content intelligently across all 20 scenes\n- For shorter texts, expand descriptions and context while maintaining biblical accuracy\n- For longer texts, segment logically while preserving all content across the 20 scenes\n- Focus on maintaining exact biblical wording and authentic Hebrew Israelite visual representation\n- ABSOLUTELY FORBIDDEN: Caucasian, white, European, or light-skinned characters unless explicitly mentioned in input text\n- REQUIRED IN EVERY SCENE: Black Hebrew Israelites with rich melanated skin, natural hair, Hebrew garments with fringes\n\nEXAMPLE IMAGE PROMPT STRUCTURE:\n\"Black Hebrew Israelite man with deeply melanated skin and natural locs, wearing traditional Hebrew robes with visible tzitzit fringes, [specific biblical scene action], ancient Middle Eastern landscape, photorealistic, reverent biblical atmosphere, rich dark skin tone, African Hebrew heritage\"\n\nCRITICAL: Return ONLY raw JSON. No markdown, no code fences, no triple-backtick blocks, no commentary before or after the JSON. Your response must start with { and end with }. Return ONLY the JSON object.`\n  }],\n  max_tokens: 5000,\n  temperature: 0.7,\n  response_format: {\n    type: \"json_schema\",\n    json_schema: {\n      name: \"biblical_scenes\",\n      schema: {\n        type: \"object\",\n        properties: {\n          scenes: {\n            type: \"array\",\n            items: {\n              type: \"object\",\n              properties: {\n                overlaidText:      { type: \"string\" },\n                voiceOverText:     { type: \"string\" },\n                imagePrompt:       { type: \"string\" },\n                motionDescription: { type: \"string\" }\n              },\n              required: [\"overlaidText\", \"voiceOverText\", \"imagePrompt\", \"motionDescription\"],\n              additionalProperties: false\n            }\n          }\n        },\n        required: [\"scenes\"],\n        additionalProperties: false\n      }\n    }\n  }\n};\n\n// Return the payload\nreturn [{\n  json: requestPayload\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        240
+      ],
+      "id": "d4d92c14-8313-462e-97d1-202a64080a5e",
+      "name": "Biblical Content Prompt Builder"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -96,
+        336
+      ],
+      "id": "6ad7a69d-e002-498b-be11-e0dedc32f715",
+      "name": "Wait 15 Seconds",
+      "webhookId": "f17237d9-4b2d-4272-af94-4ff174133de3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "error-message-final",
+              "name": "errorMessage",
+              "value": "={{ $json.movie.message }}",
+              "type": "string"
+            },
+            {
+              "id": "error-status-final",
+              "name": "errorStatus",
+              "value": "{{ $json.movie.status }}",
+              "type": "string"
+            },
+            {
+              "id": "error-time-final",
+              "name": "errorTime",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        144
+      ],
+      "id": "048d3f54-55aa-4336-bfee-fe3b4cb8356b",
+      "name": "Error Output"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "video-url-final",
+              "name": "finalVideoUrl",
+              "value": "={{ $json.movie.url }}",
+              "type": "string"
+            },
+            {
+              "id": "video-duration-final",
+              "name": "videoDuration",
+              "value": "={{ $json.movie.duration }}",
+              "type": "number"
+            },
+            {
+              "id": "video-size-final",
+              "name": "videoSize",
+              "value": "={{ $json.movie.size }}",
+              "type": "number"
+            },
+            {
+              "id": "completion-time-final",
+              "name": "completedAt",
+              "value": "={{ $json.movie.ended_at }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        -64
+      ],
+      "id": "16309c93-27eb-4795-9632-639a1cfe3978",
+      "name": "Final Video Output"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "video-complete",
+                    "leftValue": "={{ $json.movie.status }}",
+                    "rightValue": "done",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Video Complete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.movie.status }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "video-error"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Video Error"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "video-processing",
+                    "leftValue": "={{ $json.movie.status }}",
+                    "rightValue": "running",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Still Processing"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -320,
+        144
+      ],
+      "id": "559d4ce6-d55c-4b3c-b7f5-300b9049afda",
+      "name": "Video Status Router"
+    },
+    {
+      "parameters": {
+        "url": "https://api.json2video.com/v2/movies",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "project",
+              "value": "={{ $('Generate 16:9 Spiritual Video').item.json.project }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -464,
+        336
+      ],
+      "id": "33cc1abe-b5f1-409e-9eb2-33ec10b393b1",
+      "name": "Check Video Status",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AHdXrQizVw41Nyzq",
+          "name": "Json2Video"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.json2video.com/v2/movies",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"template\": \"yia2WweBcQAohYpBbByf\",\n  \"resolution\": \"hd\",\n  \"quality\": \"high\",\n  \"variables\": {{ JSON.stringify($('Enhanced Format for 16:9 Template').item.json.templateVariables) }},\n  \"settings\": {\n    \"sceneDuration\": \"auto\",\n    \"voiceTiming\": \"natural\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -736,
+        240
+      ],
+      "id": "fe457fc9-425b-49e0-9a00-a566ea4787a6",
+      "name": "Generate v8 Kling Video",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AHdXrQizVw41Nyzq",
+          "name": "Json2Video"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// v8.0 — Parse Perplexity + Generate FLUX images + Kling videos + Build template vars\nconst response = items[0].json.choices[0].message.content;\n\n// ── Field-name-anchored extraction (same as v7.2) ──\nfunction extractScenes(text) {\n  const fieldOrder = ['overlaidText', 'voiceOverText', 'imagePrompt', 'motionDescription'];\n  const scenes = [];\n  let searchFrom = 0;\n  function isWS(ch) { return ch === ' ' || ch === '\\n' || ch === '\\r' || ch === '\\t'; }\n  while (true) {\n    const firstKey = '\"' + fieldOrder[0] + '\"';\n    const sceneStart = text.indexOf(firstKey, searchFrom);\n    if (sceneStart === -1) break;\n    const scene = {};\n    let pos = sceneStart;\n    for (let fi = 0; fi < fieldOrder.length; fi++) {\n      const fn = fieldOrder[fi];\n      const nextFn = fi < fieldOrder.length - 1 ? fieldOrder[fi + 1] : null;\n      const keyPat = '\"' + fn + '\"';\n      const keyPos = text.indexOf(keyPat, pos);\n      if (keyPos === -1) break;\n      const colonPos = text.indexOf(':', keyPos + keyPat.length);\n      const openQuotePos = text.indexOf('\"', colonPos + 1);\n      const vStart = openQuotePos + 1;\n      let vEnd;\n      if (nextFn) {\n        const nextKeyPat = '\"' + nextFn + '\"';\n        const nextKeyPos = text.indexOf(nextKeyPat, vStart);\n        let back = nextKeyPos - 1;\n        while (back > vStart && isWS(text[back])) back--;\n        if (text[back] === ',') back--;\n        while (back > vStart && isWS(text[back])) back--;\n        vEnd = back;\n      } else {\n        const nextScenePos = text.indexOf('\"' + fieldOrder[0] + '\"', vStart);\n        const boundary = nextScenePos !== -1 ? nextScenePos : text.length;\n        let bracePos = boundary - 1;\n        while (bracePos > vStart && text[bracePos] !== '}') bracePos--;\n        let back = bracePos - 1;\n        while (back > vStart && isWS(text[back])) back--;\n        vEnd = back;\n      }\n      scene[fn] = text.substring(vStart, vEnd);\n      pos = vEnd;\n    }\n    if (scene[fieldOrder[0]] !== undefined) scenes.push(scene);\n    searchFrom = pos + 1;\n  }\n  return scenes;\n}\n\n// ── Parse scenes ──\nlet scenes = [];\nlet cleanResponse = '';\nfor (let i = 0; i < response.length; i++) {\n  const c = response.charCodeAt(i);\n  cleanResponse += (c < 32 && c !== 9 && c !== 10 && c !== 13) ? ' ' : response[i];\n}\nlet jsonText = cleanResponse;\nconst codeBlockMatch = cleanResponse.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\nif (codeBlockMatch) jsonText = codeBlockMatch[1].trim();\nconst jsonMatch = jsonText.match(/\\{[\\s\\S]*\\}/);\nif (jsonMatch) jsonText = jsonMatch[0];\n\ntry {\n  const sceneData = JSON.parse(jsonText);\n  scenes = sceneData.scenes || [];\n} catch (e) {\n  scenes = extractScenes(jsonText);\n  if (scenes.length === 0) throw new Error('Failed to parse scenes: ' + e.message);\n}\nif (scenes.length === 0) throw new Error('No scenes found');\n\nfunction cleanText(text) {\n  if (!text) return '';\n  return text.replace(/\"/g, \"'\").replace(/\\n/g, \" \").replace(/\\r/g, \" \").replace(/\\t/g, \" \").replace(/[\\u0000-\\u001F\\u007F-\\u009F]/g, \"\").trim();\n}\n\n// ── Generate FLUX images + Kling videos for each scene ──\nconst FAL_KEY = $env.FAL_KEY;\nif (!FAL_KEY) throw new Error('FAL_KEY environment variable not set in n8n');\n\nconst videoUrls = [];\n\nfor (let i = 0; i < scenes.length; i++) {\n  const scene = scenes[i];\n  const imagePrompt = cleanText(scene.imagePrompt || '') + ', biblical, spiritual, reverent, cinematic lighting, professional photography, ultra-detailed, photorealistic, 8K quality';\n\n  // Step 1: Generate FLUX image (synchronous)\n  const fluxResp = await fetch('https://fal.run/fal-ai/flux-pro', {\n    method: 'POST',\n    headers: {\n      'Authorization': 'Key ' + FAL_KEY,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify({\n      prompt: imagePrompt,\n      image_size: 'landscape_16_9',\n      num_inference_steps: 28,\n      num_images: 1\n    })\n  });\n  if (!fluxResp.ok) throw new Error('FLUX failed for scene ' + (i+1) + ': ' + await fluxResp.text());\n  const fluxData = await fluxResp.json();\n  const imageUrl = fluxData.images[0].url;\n\n  // Step 2: Submit Kling job (async queue) — using Standard for speed (45s vs 90s)\n  const motionPrompt = cleanText(scene.motionDescription || 'Slow cinematic camera movement with natural motion');\n  const klingResp = await fetch('https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video', {\n    method: 'POST',\n    headers: {\n      'Authorization': 'Key ' + FAL_KEY,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify({\n      image_url: imageUrl,\n      prompt: motionPrompt,\n      duration: '5',\n      cfg_scale: 0.5\n    })\n  });\n  if (!klingResp.ok) throw new Error('Kling submit failed for scene ' + (i+1) + ': ' + await klingResp.text());\n  const klingData = await klingResp.json();\n  const statusUrl = klingData.status_url;\n  const responseUrl = klingData.response_url;\n\n  // Step 3: Poll until complete (max 3 min per scene, 15s intervals)\n  let completed = false;\n  for (let attempt = 0; attempt < 12; attempt++) {\n    await new Promise(resolve => setTimeout(resolve, 15000));\n    const pollResp = await fetch(statusUrl, {\n      headers: { 'Authorization': 'Key ' + FAL_KEY }\n    });\n    const pollData = await pollResp.json();\n    if (pollData.status === 'COMPLETED') {\n      completed = true;\n      break;\n    }\n    if (pollData.status === 'FAILED' || pollData.status === 'ERROR') {\n      throw new Error('Kling failed for scene ' + (i+1) + ': ' + JSON.stringify(pollData));\n    }\n  }\n  if (!completed) throw new Error('Kling timed out for scene ' + (i+1));\n\n  // Step 4: Fetch result\n  const resultResp = await fetch(responseUrl, {\n    headers: { 'Authorization': 'Key ' + FAL_KEY }\n  });\n  const resultData = await resultResp.json();\n  const videoUrl = resultData.video?.url || resultData.data?.video?.url;\n  if (!videoUrl) throw new Error('No video URL for scene ' + (i+1) + ': ' + JSON.stringify(resultData));\n\n  videoUrls.push(videoUrl);\n}\n\n// ── Build template variables ──\nconst templateVariables = {};\nscenes.forEach((scene, index) => {\n  const sceneNum = index + 1;\n  templateVariables['scene' + sceneNum + '_videoUrl'] = videoUrls[index];\n  templateVariables['scene' + sceneNum + '_voiceOverText'] = cleanText(scene.voiceOverText || '');\n  templateVariables['scene' + sceneNum + '_overlaidText'] = cleanText(scene.overlaidText || 'Scene ' + sceneNum);\n});\ntemplateVariables.totalScenes = scenes.length;\n\nconst result = {\n  scenes: scenes,\n  templateVariables: templateVariables,\n  totalScenes: scenes.length,\n  videoUrls: videoUrls,\n  debugInfo: {\n    parsedScenesCount: scenes.length,\n    videoUrlsCount: videoUrls.length,\n    timestamp: new Date().toISOString(),\n    version: 'v8.0 - Kling AI Video Motion'\n  }\n};\n\nreturn result;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        240
+      ],
+      "id": "6dbc8bfe-c03e-4a7e-b3c3-0b2d30b1d371",
+      "name": "v8 FLUX + Kling + Template Vars"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {
+          "lowercaseHeaders": false,
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1200,
+        240
+      ],
+      "id": "889dd655-0b50-4560-903b-424f2b6db735",
+      "name": "Perplexity AI Scene Generator",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "xWzVuBnJ3gAEZfcD",
+          "name": "Perplexity"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "input-content-final",
+              "name": "inputText",
+              "value": "At that time, Jesus went on the Sabbath day through the corn, and his Disciples were an hungered, and began to pluck the ears of corn, and to eate. But when the Pharisees saw it, they said unto him, Behold, thy Disciples do that which is not lawful to do upon the Sabbath day.\nBut he said unto them, have ye not read what David did when he was an hungered, and they that were with him, How he entred into the house of God, and did eate the show bread, which was not lawful for him to eate, neither for them which were with him, but, only for the Priests? Or have ye not read in the law, how that on the Sabbath days the Priests in the Temple profane the Sabbath, and are blameless?\nBut I say unto you, that in this place is one greater then the Temple. But if ye had known what this meaneth, I will have mercy, and not sacrifice, ye would not have condemned the guiltless.\nFor the son of man is Lord even of the Sabbath day. And when he was departed thence, he went into their Synagogue.\nAnd behold, there was a man which had his hand withered, and they asked him, saying, Is it lawful to heal on the Sabbath days? that they might accuse him.\nAnd he said unto them, What man shall there be among you, that shall have one sheep: and if it fall into a pit on the Sabbath day, will he not lay hold on it, and lift it out? How much then is a man better then a sheep?\nWherefore it is lawful to do well on the Sabbath days. Then saith he to the man, Stretch forth thine hand: and he stretched it forth, and it was restored whole, like as the other.\nThen the Pharisees went out, and held a counsel against him, how they might destroy him. But when Jesus knew it, he withdrew himself from thence: and great multitudes followed him, and he healed them all, And charged them that they should not make him known: That it might be fulfilled which was spoken by Isaiah the Prophet, saying, Behold, my servant whom I have chosen, my beloved in whom my soul is well pleased: I will put my spirit upon him, and he shall show judgment to the Gentiles.\nHe shall not strive, nor cry, neither shall any man hear his voice in the streets. A bruised reed shall he not break, and smoking flax shall he not quench, till he send forth judgment unto victory.\nAnd in his name shall the Gentiles trust. Then was brought unto him one possessed with a devil, blind, and dumb: and he healed him, insomuch that the blind and dumb both spoke and saw.\nAnd all the people were amazed, and said, Is this the son of David? But when the Pharisees heard it, they said, This fellow doeth not cast out devils, but by Beelzebub the prince of the devils.\nAnd Jesus knew their thoughts, and said unto them, every kingdom divided against it self, is brought to desolation: and every city or house divided against it self, shall not stand. And if Satan cast out Satan, he is divided against himself; how shall then his kingdom stand?\nAnd if I by Beelzebub cast out devils, by whom do your children cast them out? Therefore they shall be your Judges.\nBut if I cast out devils by the Spirit of God, then the kingdom of God is come unto you. Or else, how can one enter into a strong mans house, and spoil his goods, except he first bind the strong man, and then he will spoil his house.\nHe that is not with me, is against me: and he that gathereth not with me, scattereth abroad. Wherefore I say unto you, All manner of sin and blasphemy shall be forgiuen unto men: but the blasphemy against the holy Ghost, shall not be forgiuen unto men.\nAnd whosoever speaketh a word against the son of man, it shall be forgiuen him: but whosoever speaketh against the holy Ghost, it shall not be forgiuen him, neither in this world, neither in the world to come. Either make the tree good, and his fruit good: Or else make the tree corrupt, and his fruit corrupt: For the tree is known by his fruit.\nO generation of vipers, how can ye, being evil, speak good things? For out of the abundance of the heart the mouth speaketh.\nA good man out of the good treasure of the heart, bringeth forth good things: and an evil man out of the evil treasure, bringeth forth evil things. But I say unto you, That every idle word that men shall speak, they shall give account thereof in the day of judgment.\nFor by thy words thou shalt be justified, and by thy words thou shalt be condemned. Then certain of the Scribes, and of the Pharisees, answered, saying, Master, we would see a sign from thee.\nBut he answered, and said to them, An evil and adulterous generation seeketh after a sign, and there shall no sign be given to it, but the sign of the Prophet Jonah. For as Jonah was three days and three nights in the whales belly: so shall the son of man be three days and three nights in the heart of the earth.\nThe men of Nineveh shall rise in judgment with this generation, and shall condemn it, because they repented at the preaching of Jonah, and behold, a greater then Jonah is here. The Queen of the South shall rise up in the judgment with this generation, and shall condemn it: for she came from the uttermost parts of the earth to hear the wisdom of Solomon, and behold, a greater then Solomon is here.\nWhen the unclean spirit is gone out of a man, he walketh through dry places, seeking rest, and findeth none. Then he saith, I will return into my house from whence I came out; And when he is come, he findeth it empty, swept, and garnished.\nThen goeth he, and taketh with himself seven other spirits more wicked then himself, and they enter in and dwell there: And the last state of that man is worse then the first. even so shall it be also unto this wicked generation.\nWhile he yet talked to the people, behold, his mother and his brethren stood without, desiring to speak with him. Then one said unto him, Behold, thy mother and thy brethren stand without, desiring to speak with thee.\nBut he answered, and said unto him that told him, Who is my mother? And who are my brethren?\nAnd he stretched forth his hand toward his disciples, and said, Behold, my mother and my brethren. For whosoever shall do the will of my Father which is in heaven, the same is my brother, and sister, and mother.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1632,
+        240
+      ],
+      "id": "e8049de2-08bf-4e63-b92e-43774fc06330",
+      "name": "Bible Chapter Text Input"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1856,
+        240
+      ],
+      "id": "7a59796e-c92a-4f24-875d-412230011f5f",
+      "name": "Start Workflow"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Video Status Router": {
+      "main": [
+        [
+          {
+            "node": "Final Video Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 15 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Video Status": {
+      "main": [
+        [
+          {
+            "node": "Video Status Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity AI Scene Generator": {
+      "main": [
+        [
+          {
+            "node": "v8 FLUX + Kling + Template Vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bible Chapter Text Input": {
+      "main": [
+        [
+          {
+            "node": "Biblical Content Prompt Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Biblical Content Prompt Builder": {
+      "main": [
+        [
+          {
+            "node": "Perplexity AI Scene Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Workflow": {
+      "main": [
+        [
+          {
+            "node": "Bible Chapter Text Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15 Seconds": {
+      "main": [
+        [
+          {
+            "node": "Check Video Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "v8 FLUX + Kling + Template Vars": {
+      "main": [
+        [
+          {
+            "node": "Generate v8 Kling Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate v8 Kling Video": {
+      "main": [
+        [
+          {
+            "node": "Check Video Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "f06a4454-0105-4d1c-831e-7daeb71f23e0",
+  "meta": {
+    "instanceId": "1eeefdc376334d61f01d36766d159f46708c6e5b85ad002d5bccb8d39028dc5e"
+  },
+  "id": "E4WGaVxw2jkQRbB4",
+  "tags": []
+}
