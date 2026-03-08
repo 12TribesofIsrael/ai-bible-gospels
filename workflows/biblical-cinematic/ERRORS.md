@@ -5,6 +5,30 @@ Archive this file when the app reaches full production.
 
 ---
 
+## [2026-03-07] JSON2Video rejects rectangle elements in scenes
+
+**Symptom:** Title card fails with `Object [movie/scenes[0]/elements[1]] does not match any of possible schemas: rectangle`
+
+**Root cause:** JSON2Video does not support `type: "rectangle"` inside scene elements. The title_overlay and title_divider elements caused the entire scene to be rejected.
+
+**Fix:** Removed both rectangle elements. Text readability maintained via heavy `shadow-offset` on text elements + enforcing a dark background in the FLUX image prompt.
+
+**Prevention:** Do not use `type: "rectangle"` in JSON2Video scene elements. For overlays/dividers, rely on image prompt darkness and text shadows instead.
+
+---
+
+## [2026-03-07] Template zoom/pan variables mismatched with n8n output
+
+**Symptom:** All Ken Burns motion on scenes 1–20 was silently ignored — images rendered static.
+
+**Root cause:** Template referenced `scene1_zoomStart`, `scene1_zoomEnd`, `scene1_panStart`, `scene1_panEnd` but n8n sets `scene1_zoom` (integer) and `scene1_pan` (string). Variables never resolved so zoom/pan defaulted to no motion.
+
+**Fix:** Updated template to use `{{scene1_zoom}}`, `{{scene1_pan}}`, `{{scene1_panDistance}}` matching what n8n actually outputs.
+
+**Prevention:** When changing n8n variable names, always cross-check against the JSON2Video template variable block.
+
+---
+
 ## [2026-03-02] Ghost server blocking port 8000
 
 **Symptom:** New server wouldn't bind to port 8000. `taskkill /F /PID <pid>` returned "process not found" but port was still occupied and serving old content.
