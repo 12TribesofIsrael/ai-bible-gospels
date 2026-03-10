@@ -5,6 +5,24 @@ Archive this file when the app reaches full production.
 
 ---
 
+## [2026-03-10] Last scene loops endlessly — uneven Perplexity text distribution
+
+**Symptom:** Final rendered video gets stuck on the last scene. The 5-second Kling clip loops 10-13x while a massive narration plays. Earlier scenes have 6-20 words while scene 20 has 90-156 words.
+
+**Root cause:** Perplexity sonar-pro ignores the "20+ words minimum" voiceOverText constraint and distributes text unevenly — stuffing the last few scenes with all remaining verses. A 5-second Kling clip looping for 68 seconds of narration looks broken.
+
+**Fix:** Added text-balancing logic to the **Build Template Vars** code node (all 4 workflow files):
+1. Forward pass (scenes 1-19): any scene over 55 words splits at the nearest sentence boundary (period + space), overflow pushed to the next scene
+2. Scene 20 special: overflow pushed **backward** into scene 19 (since there's no scene 21)
+3. Fallback: if no sentence boundary found after 55 words, tries after 25 words, then hard-splits at word boundary
+4. Debug output includes `wordCounts` per scene for verification
+
+**Also added** (but insufficient alone): Perplexity prompt now says "20-60 words per scene, NEVER exceed 60 words" and "distribute EVENLY" — but Perplexity doesn't reliably follow these constraints, so the code-level fix is the real solution.
+
+**Files changed:** `n8n/v8.0-kling.json`, `n8n/models/v1.6-standard/*.json`, `n8n/models/v2.1-standard/*.json`, `n8n/models/v3-standard/*.json`
+
+---
+
 ## [2026-03-08] "Not all elements have metadata" — 8 consecutive render failures
 
 **Symptom:** Eight render failures after modifying template. Error after 671 seconds: "Not all elements have metadata". Last successful render was March 7 at 18:42 using the baseline `h5.json`.
