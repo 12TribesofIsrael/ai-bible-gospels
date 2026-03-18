@@ -10,6 +10,7 @@ AI Movie — a personal workspace for building AI-generated video systems. Conta
 |---|---|---|---|
 | **General AI Movie** | root (`app.py`, `pipeline.py`, `src/`) | Reference | Python/Gradio pipeline: text prompt → images → video clips → narrated movie via fal.ai + OpenAI |
 | **Biblical Cinematic** | `workflows/biblical-cinematic/` | ✓ Production (v7.2) | KJV scripture → cleaned text → n8n Perplexity + ElevenLabs + JSON2Video → 8–13 min MP4 |
+| **Custom Script** | `workflows/custom-script/` | ✓ Production | Any script/concept → Claude AI scenes → FLUX + Kling + JSON2Video → dynamic-length MP4 |
 
 ---
 
@@ -203,6 +204,58 @@ See **[docs/v7-upgrade-plan.md](docs/v7-upgrade-plan.md)** for v8.0 spec: Kling 
 
 ---
 
+## Workflow 3: Custom Script Pipeline
+
+### Stack
+- **Python** (FastAPI web UI + CLI), **Claude AI** (scene generation), **fal.ai** (FLUX + Kling), **ElevenLabs** (via JSON2Video), **JSON2Video** (assembly)
+
+### Full Pipeline
+```
+Browser (http://localhost:8500) or CLI
+  → Paste script/concept
+  → Claude AI           → N cinematic scenes (dynamic count)
+  → fal.ai FLUX Pro     → generate image per scene
+  → fal.ai Kling v3     → animate each image to 15s video clip
+  → JSON2Video          → templateless inline payload → ElevenLabs narration + subtitles → final MP4
+```
+
+**No n8n required.** No template ID. Payload built dynamically in code.
+
+### Start the web app
+```bash
+python workflows/custom-script/server.py
+# Opens at http://localhost:8500
+```
+
+### CLI usage
+```bash
+python workflows/custom-script/generate.py script.txt              # full pipeline
+python workflows/custom-script/generate.py script.txt --scenes-only # preview scenes only
+python workflows/custom-script/generate.py script.txt --post-produce # with intro/outro
+```
+
+### Recovery (if pipeline fails mid-generation)
+```bash
+python workflows/custom-script/recover.py  # recovers completed videos from fal.ai history
+```
+
+### Key Files
+| File | Purpose |
+|---|---|
+| [workflows/custom-script/server.py](workflows/custom-script/server.py) | FastAPI web UI — paste script, edit scenes, generate video, real-time progress (port 8500) |
+| [workflows/custom-script/generate.py](workflows/custom-script/generate.py) | CLI pipeline — script → Claude scenes → FLUX → Kling → JSON2Video |
+| [workflows/custom-script/recover.py](workflows/custom-script/recover.py) | Recovery — fetches completed Kling videos from fal.ai history API, regenerates only missing scenes |
+| [workflows/custom-script/example-trailer.txt](workflows/custom-script/example-trailer.txt) | Example input — channel trailer script |
+| [workflows/custom-script/README.md](workflows/custom-script/README.md) | Complete usage guide |
+
+### Important Notes
+- **Never put text in FLUX image prompts** — AI misspells words. Use subtitles for all on-screen text.
+- **Subtitles use transcription mode** — exact narration text provided, not auto-detected from audio. Ensures correct biblical name spelling.
+- **Single-scene re-generation** — fix one scene without re-doing the whole video (~$1.50 JSON2Video render only).
+- **Retry button** in web UI picks up from failed scene without re-generating completed scenes.
+
+---
+
 ## Environment Variables
 
 See [.env.example](.env.example) for all keys. The `.env` file lives at the workspace root.
@@ -214,7 +267,8 @@ See [.env.example](.env.example) for all keys. The `.env` file lives at the work
 | `N8N_WEBHOOK_URL` | Biblical web app → triggers n8n workflow |
 | `PERPLEXITY_API_KEY` | Reference only (configured inside n8n) |
 | `ELEVENLABS_API_KEY` | Reference only (configured inside n8n) |
-| `JSON2VIDEO_API_KEY` | Biblical server `/api/status` — polls render progress + provides download URL (confirmed working) |
+| `JSON2VIDEO_API_KEY` | Biblical server `/api/status` + Custom Script pipeline — polls render progress + provides download URL |
+| `ANTHROPIC_API_KEY` | Custom Script pipeline — Claude AI scene generation |
 
 The biblical server uses `find_dotenv()` to locate `.env` by walking up the directory tree from `server/app.py`.
 
