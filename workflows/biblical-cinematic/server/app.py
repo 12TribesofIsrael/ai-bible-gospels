@@ -26,6 +26,9 @@ load_dotenv(find_dotenv(), override=True)
 # Make the text_processor module importable
 sys.path.insert(0, str(Path(__file__).parent.parent / "text_processor"))
 
+# Make the custom-script router importable
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "custom-script"))
+
 import json as json_module
 import re
 import threading
@@ -44,6 +47,22 @@ from biblical_text_processor_v2 import (
 )
 
 app = FastAPI(title="Biblical Cinematic Generator")
+
+# Mount custom script router
+try:
+    from router import custom_router
+    app.include_router(custom_router, prefix="/custom")
+    print("Custom Script router mounted at /custom")
+except ImportError as e:
+    print(f"WARNING: Custom Script router not loaded: {e}")
+
+# Mount biblical v9 pipeline router (no n8n)
+try:
+    from biblical_pipeline import biblical_router
+    app.include_router(biblical_router, prefix="/v9")
+    print("Biblical v9 pipeline router mounted at /v9")
+except ImportError as e:
+    print(f"WARNING: Biblical v9 router not loaded: {e}")
 
 # ── Generation state (single-user, in-memory) ─────────────────────────────────
 # Resets each time a new video is triggered.
@@ -710,25 +729,28 @@ LANDING_PAGE = """<!DOCTYPE html>
       display: inline-block;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .nav-tab { transition: all 0.2s ease; }
+    .nav-tab:hover { background: rgba(245,158,11,0.1); }
+    .nav-tab.active { border-bottom: 2px solid #f59e0b; color: #f59e0b; }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
 
-  <!-- Header -->
-  <header class="border-b border-gray-800 px-6 py-5 flex items-center gap-4">
-    <div class="text-amber-500 text-2xl">✦</div>
-    <div>
-      <h1 class="title-font text-xl font-semibold text-amber-400 tracking-wide">Biblical Cinematic Generator</h1>
-      <p class="text-xs text-gray-500 mt-0.5">Perplexity AI · fal.ai FLUX + Kling · ElevenLabs · JSON2Video · n8n</p>
+  <!-- Navigation -->
+  <nav class="border-b border-gray-800 bg-gray-950 sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto flex items-center">
+      <div class="text-amber-500 text-2xl px-4">✦</div>
+      <a href="/" class="nav-tab active px-5 py-4 text-sm font-medium">Scripture Mode</a>
+      <a href="/custom" class="nav-tab px-5 py-4 text-sm text-gray-400 font-medium">Custom Script Mode</a>
+      <div class="ml-auto flex items-center gap-4 pr-4">
+        <a href="#step4" onclick="document.getElementById('step4').scrollIntoView({behavior:'smooth'}); return false;"
+          class="text-xs text-purple-400 hover:text-purple-300 border border-purple-800 hover:border-purple-600 px-3 py-1.5 rounded-lg transition-colors">
+          ▼ Post-Production
+        </a>
+        <span class="text-xs text-gray-600">v8.0 · ~$7.31/video</span>
+      </div>
     </div>
-    <div class="ml-auto flex items-center gap-4">
-      <a href="#step4" onclick="document.getElementById('step4').scrollIntoView({behavior:'smooth'}); return false;"
-        class="text-xs text-purple-400 hover:text-purple-300 border border-purple-800 hover:border-purple-600 px-3 py-1.5 rounded-lg transition-colors">
-        ▼ Post-Production
-      </a>
-      <span class="text-xs text-gray-600">v8.0 · ~$7.31/video · 35–45 min</span>
-    </div>
-  </header>
+  </nav>
 
   <main class="max-w-4xl mx-auto px-6 py-12">
 
@@ -910,23 +932,21 @@ LANDING_PAGE = """<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Pipeline steps -->
-        <div class="bg-gray-800 rounded-xl p-5 text-left text-sm space-y-3 max-w-md mx-auto mb-6 mt-4">
-          <div class="flex items-center gap-3 text-gray-300">
+        <!-- Per-scene progress -->
+        <div id="v9-scene-progress" class="bg-gray-800 rounded-xl p-5 text-left text-sm max-w-md mx-auto mb-6 mt-4">
+          <div class="flex items-center gap-3 text-gray-300 mb-3">
             <span class="text-green-400">✓</span> Text cleaned and processed
           </div>
-          <div class="flex items-center gap-3 text-gray-300">
-            <span class="text-green-400">✓</span> Sent to n8n workflow
-          </div>
-          <div id="step-perplexity" class="flex items-center gap-3 text-gray-400">
-            <span id="icon-perplexity" class="text-gray-600">○</span> Perplexity AI generating 20 scenes...
-          </div>
-          <div id="step-fal" class="flex items-center gap-3 text-gray-400">
-            <span id="icon-fal" class="text-gray-600">○</span> fal.ai generating FLUX images + Kling video clips...
-          </div>
-          <div id="step-json2video" class="flex items-center gap-3 text-gray-400">
-            <span id="icon-json2video" class="text-gray-600">○</span> JSON2Video assembling final video...
-          </div>
+          <div id="v9-scenes-list" class="space-y-1"></div>
+        </div>
+
+        <!-- Stop rendering button (visible during generation) -->
+        <div id="v9-stop-panel" class="mb-4">
+          <button onclick="stopV9Pipeline()" id="v9-stop-btn"
+            class="bg-red-700 hover:bg-red-600 text-white font-semibold px-6 py-2 rounded-lg text-sm">
+            ⏹ Stop Rendering
+          </button>
+          <p class="text-xs text-gray-500 mt-1">Stops the pipeline to save credits. Completed scenes are preserved.</p>
         </div>
 
         <!-- Video ready panel (hidden until done) -->
@@ -937,6 +957,35 @@ LANDING_PAGE = """<!DOCTYPE html>
               class="block w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-xl transition-colors text-center">
               ⬇ Download Video
             </a>
+          </div>
+        </div>
+
+        <!-- Error panel with retry -->
+        <div id="v9-error-panel" class="hidden mb-6">
+          <div class="bg-red-900/30 border border-red-700 rounded-xl p-5 max-w-md mx-auto">
+            <p class="text-red-400 font-semibold mb-2">Pipeline Error</p>
+            <p id="v9-error-msg" class="text-xs text-red-300 mb-3"></p>
+            <button onclick="retryV9()"
+              class="bg-amber-600 hover:bg-amber-500 text-black font-semibold px-6 py-2 rounded-lg text-sm">
+              Retry from Failed Scene →
+            </button>
+          </div>
+        </div>
+
+        <!-- Multi-Fix Scenes panel -->
+        <div id="v9-fix-panel" class="hidden mb-6">
+          <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 max-w-2xl mx-auto text-left">
+            <h4 class="text-sm font-semibold text-purple-400 mb-1">Fix Scenes</h4>
+            <p class="text-xs text-gray-400 mb-3">Select scenes to fix, edit their prompts, then regenerate all at once with ONE render.</p>
+            <div id="v9-fix-scene-list" class="space-y-2 mb-4 max-h-96 overflow-y-auto pr-1"></div>
+            <div class="flex items-center justify-between mb-3">
+              <p id="v9-fix-cost" class="text-xs text-yellow-400">Select scenes above</p>
+              <p class="text-xs text-yellow-500">Tip: Never put text/words in image prompts</p>
+            </div>
+            <button onclick="fixV9Scenes()" id="v9-fix-btn"
+              class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-6 py-2 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              Regenerate Selected Scenes →
+            </button>
           </div>
         </div>
 
@@ -954,6 +1003,28 @@ LANDING_PAGE = """<!DOCTYPE html>
       <div class="flex-1 h-px bg-gray-800"></div>
       <span class="text-xs text-gray-600 font-semibold tracking-widest uppercase">Post-Production</span>
       <div class="flex-1 h-px bg-gray-800"></div>
+    </div>
+
+    <!-- ── Render History ── -->
+    <div id="history-panel">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
+        <div class="flex items-start justify-between mb-5">
+          <div class="flex items-start gap-3">
+            <div class="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 mt-0.5">H</div>
+            <div>
+              <h3 class="text-base font-semibold text-white">Render History</h3>
+              <p class="text-sm text-gray-400 mt-0.5">Past renders with scenes and video links.</p>
+            </div>
+          </div>
+          <button onclick="loadHistory()" title="Refresh"
+            class="text-xs text-gray-500 hover:text-gray-200 border border-gray-700 hover:border-gray-500 px-2.5 py-1 rounded-lg transition-colors">
+            ↺
+          </button>
+        </div>
+        <div id="history-list" class="space-y-2 max-h-96 overflow-y-auto">
+          <p class="text-xs text-gray-600">Click ↺ to load history</p>
+        </div>
+      </div>
     </div>
 
     <!-- ── STEP 4: Post-Production ── -->
@@ -1166,42 +1237,36 @@ LANDING_PAGE = """<!DOCTYPE html>
       return m + ':' + String(sec).padStart(2, '0');
     }
 
-    function setStageIcon(id, state) {
-      const icon = document.getElementById('icon-' + id);
-      const row  = document.getElementById('step-' + id);
-      if (state === 'done') {
-        icon.textContent = '✓';
-        icon.className = 'text-green-400';
-        row.className = 'flex items-center gap-3 text-gray-300';
-      } else if (state === 'active') {
-        icon.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>';
-        row.className = 'flex items-center gap-3 text-white font-medium';
-      } else {
-        icon.textContent = '○';
-        icon.className = 'text-gray-600';
-        row.className = 'flex items-center gap-3 text-gray-400';
+    // ── V9 per-scene progress ─────────────────────────────────────────────
+    let v9Scenes = [];
+
+    function initV9Progress(total) {
+      const list = document.getElementById('v9-scenes-list');
+      list.innerHTML = '';
+      for (let i = 0; i < total; i++) {
+        list.innerHTML += `<div class="flex items-center gap-2" id="v9sp_${i}">
+          <span class="w-2 h-2 rounded-full bg-gray-600" id="v9dot_${i}"></span>
+          <span class="text-xs text-gray-500" id="v9txt_${i}">Scene ${i+1} — waiting</span>
+        </div>`;
       }
+      document.getElementById('v9-error-panel').classList.add('hidden');
+      document.getElementById('v9-fix-panel').classList.add('hidden');
+      document.getElementById('video-ready-panel').classList.add('hidden');
     }
 
-    function setBar(pct, label, realtime) {
+    function setBar(pct, label) {
       document.getElementById('progress-bar').style.width = Math.min(pct, 100) + '%';
       document.getElementById('progress-percent').textContent = Math.min(pct, 100) + '%';
       document.getElementById('progress-stage-label').textContent = label;
-      const badge = document.getElementById('realtime-badge');
-      if (realtime) {
-        badge.textContent = '● Live';
-        badge.className = 'text-green-500 font-medium';
-      } else {
-        badge.textContent = '~ Estimated';
-        badge.className = 'text-gray-600';
-      }
+      document.getElementById('realtime-badge').textContent = '● Live';
+      document.getElementById('realtime-badge').className = 'text-green-500 font-medium';
     }
 
     // ── Polling ───────────────────────────────────────────────────────────────
     function startPolling() {
       stopPolling();
-      pollStatus();  // immediate first call
-      pollTimer = setInterval(pollStatus, 6000);  // then every 6 s
+      pollStatus();
+      pollTimer = setInterval(pollStatus, 2000);
     }
 
     function stopPolling() {
@@ -1210,70 +1275,289 @@ LANDING_PAGE = """<!DOCTYPE html>
 
     async function pollStatus() {
       try {
-        const res = await fetch('/api/status');
+        const res = await fetch('/v9/api/status');
         if (!res.ok) return;
         const data = await res.json();
-        applyStatus(data);
-      } catch (_) { /* ignore network errors */ }
+        applyV9Status(data);
+      } catch (_) {}
     }
 
-    function applyStatus(data) {
-      const elapsed = data.elapsed || 0;
-      document.getElementById('progress-elapsed').textContent = fmt(elapsed);
+    function applyV9Status(data) {
+      const msg = data.message || '';
 
-      switch (data.phase) {
-        case 'perplexity': {
-          setStageIcon('perplexity', 'active');
-          setStageIcon('fal', 'pending');
-          setStageIcon('json2video', 'pending');
-          const pct = Math.min(Math.floor(elapsed / 90 * 10), 10);
-          setBar(pct, 'Perplexity AI generating 20 scenes...', false);
-          break;
-        }
-        case 'fal_generation': {
-          setStageIcon('perplexity', 'done');
-          setStageIcon('fal', 'active');
-          setStageIcon('json2video', 'pending');
-          const sceneEst = data.scenes_estimated || 0;
-          const pct = 10 + Math.min(Math.floor(sceneEst / 20 * 75), 75);
-          setBar(pct, 'fal.ai: generating scene ' + sceneEst + '/20 (FLUX image + Kling video)...', false);
-          break;
-        }
-        case 'json2video': {
-          setStageIcon('perplexity', 'done');
-          setStageIcon('fal', 'done');
-          setStageIcon('json2video', 'active');
-          const rt = data.realtime === true;
-          const j2vPct = data.status === 'queued'
-            ? 86
-            : Math.min(86 + Math.floor((elapsed - 2000) / 420 * 13), 99);
-          const label = data.status === 'queued'
-            ? 'JSON2Video: queued — waiting for render slot...'
-            : 'JSON2Video assembling final video...';
-          setBar(j2vPct, label, rt);
-          break;
-        }
-        case 'done': {
-          stopPolling();
-          setStageIcon('perplexity', 'done');
-          setStageIcon('fal', 'done');
-          setStageIcon('json2video', 'done');
-          setBar(100, 'Video ready!', true);
-          document.getElementById('step3-icon').textContent = '✅';
-          document.getElementById('step3-title').textContent = 'Your Video Is Ready';
-          document.getElementById('step3-title').className = 'title-font text-xl font-semibold text-green-400 mb-2';
-          if (data.video_url) {
-            const link = document.getElementById('video-download-link');
-            link.href = data.video_url;
-            document.getElementById('video-ready-panel').classList.remove('hidden');
+      if (data.phase === 'generating_scenes') {
+        setBar(5, 'Claude AI generating scene visuals...');
+      } else if (data.phase === 'generating_media') {
+        const pct = data.total_scenes > 0 ? Math.round((data.current_scene / data.total_scenes) * 80) : 0;
+        setBar(pct, msg);
+        for (let i = 0; i < data.total_scenes; i++) {
+          const dot = document.getElementById('v9dot_' + i);
+          const txt = document.getElementById('v9txt_' + i);
+          if (!dot) continue;
+          if (i < (data.processed || []).length) {
+            dot.className = 'w-2 h-2 rounded-full bg-green-500';
+            txt.className = 'text-xs text-green-400';
+            txt.textContent = `Scene ${i+1} — done`;
+          } else if (i === data.current_scene - 1) {
+            dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+            txt.className = 'text-xs text-amber-400';
+            txt.textContent = `Scene ${i+1} — ${msg.includes('FLUX') ? 'generating image...' : 'generating video...'}`;
           }
-          break;
         }
-        case 'error': {
-          stopPolling();
-          setBar(0, '⚠ Error: ' + (data.message || 'Generation failed'), false);
-          break;
+      } else if (data.phase === 'rendering') {
+        setBar(90, 'JSON2Video assembling final video...');
+        // Mark all scenes done
+        for (let i = 0; i < data.total_scenes; i++) {
+          const dot = document.getElementById('v9dot_' + i);
+          const txt = document.getElementById('v9txt_' + i);
+          if (!dot) continue;
+          dot.className = 'w-2 h-2 rounded-full bg-green-500';
+          txt.className = 'text-xs text-green-400';
+          txt.textContent = `Scene ${i+1} — done`;
         }
+      } else if (data.phase === 'done') {
+        stopPolling();
+        setBar(100, 'Video ready!');
+        document.getElementById('v9-stop-panel').classList.add('hidden');
+        document.getElementById('step3-icon').textContent = '✅';
+        document.getElementById('step3-title').textContent = 'Your Video Is Ready';
+        document.getElementById('step3-title').className = 'title-font text-xl font-semibold text-green-400 mb-2';
+        if (data.video_url) {
+          document.getElementById('video-download-link').href = data.video_url;
+          document.getElementById('video-ready-panel').classList.remove('hidden');
+        }
+        // Sync v9Scenes from backend so fix panel always shows latest scene data
+        if (data.scenes && data.scenes.length) v9Scenes = data.scenes;
+        showV9FixPanel();
+      } else if (data.phase === 'error' || data.phase === 'stopped') {
+        stopPolling();
+        document.getElementById('v9-stop-panel').classList.add('hidden');
+        if (data.phase === 'stopped') {
+          setBar(0, 'Pipeline stopped by user');
+          document.getElementById('v9-error-panel').classList.remove('hidden');
+          document.getElementById('v9-error-msg').textContent = 'Stopped by user. Completed scenes preserved — use Retry to resume.';
+        } else {
+          setBar(0, 'Error');
+          document.getElementById('v9-error-panel').classList.remove('hidden');
+          document.getElementById('v9-error-msg').textContent = data.error || data.message || 'Unknown error';
+        }
+      }
+    }
+
+    async function retryV9() {
+      document.getElementById('v9-error-panel').classList.add('hidden');
+      document.getElementById('video-ready-panel').classList.add('hidden');
+      try {
+        const res = await fetch('/v9/api/retry', {method: 'POST', headers: {'Content-Type': 'application/json'}});
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
+        const data = await res.json();
+        setBar(0, `Resuming from Scene ${data.resume_from}...`);
+        startPolling();
+      } catch(e) {
+        document.getElementById('v9-error-panel').classList.remove('hidden');
+        document.getElementById('v9-error-msg').textContent = e.message;
+      }
+    }
+
+    async function stopV9Pipeline() {
+      if (!confirm('Stop rendering? Completed scenes are saved, but the current scene will be lost.')) return;
+      try {
+        const res = await fetch('/v9/api/stop', {method: 'POST'});
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
+        stopPolling();
+        setBar(0, 'Pipeline stopped by user');
+        document.getElementById('v9-stop-panel').classList.add('hidden');
+      } catch(e) {
+        alert('Failed to stop: ' + e.message);
+      }
+    }
+
+    function showV9FixPanel() {
+      if (!v9Scenes.length) return;
+      document.getElementById('v9-fix-panel').classList.remove('hidden');
+      const list = document.getElementById('v9-fix-scene-list');
+      list.innerHTML = '';
+      for (let i = 0; i < v9Scenes.length; i++) {
+        const s = v9Scenes[i] || {};
+        const narr = (s.narration || '').substring(0, 60) + ((s.narration || '').length > 60 ? '...' : '');
+        const type = s.type ? ` [${s.type}]` : '';
+        list.innerHTML += `
+          <div class="border border-gray-700 rounded-lg">
+            <label class="flex items-start gap-3 p-3 cursor-pointer hover:bg-gray-750">
+              <input type="checkbox" class="v9-fix-cb mt-1 accent-purple-500" data-idx="${i}" onchange="updateFixCost()">
+              <div class="flex-1 min-w-0">
+                <span class="text-xs font-semibold text-gray-300">Scene ${i+1}${type}</span>
+                <span class="text-xs text-gray-500 ml-2">${narr}</span>
+              </div>
+            </label>
+            <div id="v9-fix-editor-${i}" class="hidden px-3 pb-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-500 block mb-1">Image Prompt</label>
+                  <textarea id="v9-fix-img-${i}" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500">${s.imagePrompt || ''}</textarea>
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500 block mb-1">Narration (read-only)</label>
+                  <textarea rows="3" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-400" readonly>${s.narration || ''}</textarea>
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500 block mb-1">Motion</label>
+                  <input id="v9-fix-motion-${i}" type="text" value="${s.motion || ''}" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500 block mb-1">Lighting</label>
+                  <input id="v9-fix-lighting-${i}" type="text" value="${s.lighting || ''}" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500" />
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }
+      // Toggle inline editors when checkbox changes
+      list.querySelectorAll('.v9-fix-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const editor = document.getElementById('v9-fix-editor-' + cb.dataset.idx);
+          editor.classList.toggle('hidden', !cb.checked);
+        });
+      });
+      updateFixCost();
+    }
+
+    function updateFixCost() {
+      const checked = document.querySelectorAll('.v9-fix-cb:checked').length;
+      const costEl = document.getElementById('v9-fix-cost');
+      const btn = document.getElementById('v9-fix-btn');
+      if (checked === 0) {
+        costEl.textContent = 'Select scenes above';
+        btn.disabled = true;
+      } else {
+        costEl.textContent = `~$1.50 for 1 render (${checked} scene${checked > 1 ? 's' : ''} selected)`;
+        btn.disabled = false;
+      }
+    }
+
+    async function fixV9Scenes() {
+      const cbs = document.querySelectorAll('.v9-fix-cb:checked');
+      if (!cbs.length) return;
+      const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v1.6';
+      const fixes = [];
+      cbs.forEach(cb => {
+        const idx = parseInt(cb.dataset.idx);
+        const s = v9Scenes[idx] || {};
+        const scene = {
+          narration: s.narration || '',
+          imagePrompt: document.getElementById('v9-fix-img-' + idx)?.value || s.imagePrompt || '',
+          motion: document.getElementById('v9-fix-motion-' + idx)?.value || s.motion || '',
+          lighting: document.getElementById('v9-fix-lighting-' + idx)?.value || s.lighting || '',
+        };
+        v9Scenes[idx] = scene;
+        fixes.push({scene_index: idx, scene});
+      });
+
+      document.getElementById('v9-fix-btn').disabled = true;
+      document.getElementById('video-ready-panel').classList.add('hidden');
+      document.getElementById('v9-fix-panel').classList.add('hidden');
+      document.getElementById('step3-icon').textContent = '🎬';
+      document.getElementById('step3-title').textContent = 'Fixing ' + fixes.length + ' Scene' + (fixes.length > 1 ? 's' : '');
+      document.getElementById('step3-title').className = 'title-font text-xl font-semibold text-amber-400 mb-2';
+      setBar(0, `Regenerating ${fixes.length} scenes...`);
+      initV9Progress(v9Scenes.length);
+
+      try {
+        const res = await fetch('/v9/api/fix-scenes', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({fixes, model})
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
+        startPolling();
+      } catch(e) {
+        document.getElementById('v9-error-panel').classList.remove('hidden');
+        document.getElementById('v9-error-msg').textContent = e.message;
+      } finally {
+        document.getElementById('v9-fix-btn').disabled = false;
+      }
+    }
+
+    // ── Render History ────────────────────────────────────────────────────────
+    async function loadHistory() {
+      const list = document.getElementById('history-list');
+      list.innerHTML = '<p class="text-xs text-gray-500">Loading...</p>';
+      try {
+        const res = await fetch('/v9/api/history');
+        const data = await res.json();
+        if (!data.length) { list.innerHTML = '<p class="text-xs text-gray-600">No renders yet</p>'; return; }
+        list.innerHTML = '';
+        data.forEach(h => {
+          const label = [h.book, h.chapter].filter(Boolean).join(' ') || 'Custom';
+          const date = new Date(h.created_at).toLocaleString();
+          const statusColor = h.status === 'done' ? 'text-green-400' : 'text-red-400';
+          list.innerHTML += `
+            <div class="border border-gray-700 rounded-lg p-3">
+              <div class="flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                  <span class="text-sm font-semibold text-gray-200">${label}</span>
+                  <span class="text-xs text-gray-500 ml-2">${date}</span>
+                  <span class="text-xs ${statusColor} ml-2">${h.status}</span>
+                  <span class="text-xs text-gray-600 ml-2">${h.scene_count} scenes · ${h.model}</span>
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                  ${h.video_url ? `<a href="${h.video_url}" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 border border-gray-700 px-2 py-1 rounded">Download</a>` : ''}
+                  <button onclick="viewHistoryItem('${h.id}')" class="text-xs text-indigo-400 hover:text-indigo-300 border border-gray-700 px-2 py-1 rounded">View</button>
+                  <button onclick="loadHistoryIntoFix('${h.id}')" class="text-xs text-purple-400 hover:text-purple-300 border border-gray-700 px-2 py-1 rounded">Load & Fix</button>
+                </div>
+              </div>
+              <div id="history-detail-${h.id}" class="hidden mt-3"></div>
+            </div>`;
+        });
+      } catch(e) {
+        list.innerHTML = '<p class="text-xs text-red-400">Failed to load history</p>';
+      }
+    }
+
+    async function viewHistoryItem(id) {
+      const detail = document.getElementById('history-detail-' + id);
+      if (!detail) return;
+      if (!detail.classList.contains('hidden')) { detail.classList.add('hidden'); return; }
+      detail.innerHTML = '<p class="text-xs text-gray-500">Loading scenes...</p>';
+      detail.classList.remove('hidden');
+      try {
+        const res = await fetch('/v9/api/history/' + id);
+        const data = await res.json();
+        if (!data.scenes || !data.scenes.length) { detail.innerHTML = '<p class="text-xs text-gray-600">No scene data</p>'; return; }
+        let html = '<div class="space-y-1">';
+        data.scenes.forEach((s, i) => {
+          const type = s.type ? ` [${s.type}]` : '';
+          const narr = (s.narration || '').substring(0, 80) + ((s.narration || '').length > 80 ? '...' : '');
+          html += `<div class="text-xs text-gray-400 py-1 border-b border-gray-800">
+            <span class="text-gray-300 font-semibold">Scene ${i+1}${type}</span> — ${narr}
+          </div>`;
+        });
+        html += '</div>';
+        detail.innerHTML = html;
+      } catch(e) {
+        detail.innerHTML = '<p class="text-xs text-red-400">Failed to load</p>';
+      }
+    }
+
+    async function loadHistoryIntoFix(id) {
+      try {
+        const res = await fetch('/v9/api/history/' + id);
+        const data = await res.json();
+        if (!data.scenes || !data.scenes.length) { alert('No scene data to load'); return; }
+        v9Scenes = data.scenes;
+        // Switch to step 3 and show fix panel
+        setStep(3);
+        document.getElementById('step3-icon').textContent = '🔧';
+        document.getElementById('step3-title').textContent = 'Fixing Scenes from History';
+        document.getElementById('step3-title').className = 'title-font text-xl font-semibold text-purple-400 mb-2';
+        document.getElementById('v9-scene-progress').classList.add('hidden');
+        document.getElementById('v9-stop-panel').classList.add('hidden');
+        document.getElementById('video-ready-panel').classList.add('hidden');
+        document.getElementById('v9-error-panel').classList.add('hidden');
+        setBar(0, 'Loaded from history — select scenes to fix');
+        showV9FixPanel();
+      } catch(e) {
+        alert('Failed to load: ' + e.message);
       }
     }
 
@@ -1481,27 +1765,34 @@ LANDING_PAGE = """<!DOCTYPE html>
       }
 
       const btn = document.getElementById('approve-btn');
-      btn.innerHTML = '<span class="spinner"></span><span>Sending to n8n...</span>';
+      const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v1.6';
+      btn.innerHTML = '<span class="spinner"></span><span>Claude AI generating scenes...</span>';
       btn.disabled = true;
       hideError('approve-error');
 
       try {
-        const res = await fetch('/api/generate', {
+        const res = await fetch('/v9/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: approvedText,
-            section_index: activeSectionIndex,
-            model: document.querySelector('input[name="kling-model"]:checked')?.value || 'v1.6',
+            model: model,
+            scene_count: 20,
+            book: document.getElementById('bible-book')?.value || '',
+            chapter: document.getElementById('bible-chapter')?.value || '',
           }),
         });
 
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.detail || 'Failed to trigger workflow.');
+          throw new Error(err.detail || 'Failed to start v9 pipeline.');
         }
 
+        const data = await res.json();
+        v9Scenes = data.scenes || [];
+
         setStep(3);
+        initV9Progress(data.total_scenes || v9Scenes.length);
         startPolling();
       } catch (e) {
         showError('approve-error', e.message);
@@ -1517,16 +1808,19 @@ LANDING_PAGE = """<!DOCTYPE html>
     function startOver() {
       stopPolling();
       // Reset step 3 visual state
-      ['perplexity', 'fal', 'json2video'].forEach(id => setStageIcon(id, 'pending'));
       document.getElementById('progress-bar').style.width = '0%';
       document.getElementById('progress-percent').textContent = '0%';
       document.getElementById('progress-elapsed').textContent = '0:00';
       document.getElementById('progress-stage-label').textContent = 'Starting pipeline...';
       document.getElementById('realtime-badge').textContent = '';
       document.getElementById('video-ready-panel').classList.add('hidden');
+      document.getElementById('v9-error-panel').classList.add('hidden');
+      document.getElementById('v9-fix-panel').classList.add('hidden');
+      document.getElementById('v9-scenes-list').innerHTML = '';
       document.getElementById('step3-icon').textContent = '🎬';
       document.getElementById('step3-title').textContent = 'Video Generation In Progress';
       document.getElementById('step3-title').className = 'title-font text-xl font-semibold text-amber-400 mb-2';
+      v9Scenes = [];
       setStep(1);
       document.getElementById('raw-text').value = '';
       document.getElementById('char-count').textContent = '0 characters';

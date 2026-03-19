@@ -2,12 +2,20 @@
 
 A personal workspace for building AI-generated video systems. Paste in text — get back a fully produced, narrated cinematic video.
 
-Contains two independent workflows:
+Contains three workflows, with the two production workflows merged into a **unified web app** at http://localhost:8000:
 
 | Workflow | Status | What it does |
 |---|---|---|
-| **Biblical Cinematic** | Production — Working | KJV scripture → 12–20 min cinematic video with narration |
+| **Biblical Cinematic** (Scripture Mode) | Production (v10) | KJV scripture → cinematic video with narration, batch scene fixing, stop rendering, render history |
+| **Custom Script** (Custom Script Mode) | Production | Any script/concept → Claude AI scenes → dynamic-length cinematic video |
 | **General AI Movie** | In Development | Script/prompt → images → animated video clips → narrated movie |
+
+### Quick Start
+```bash
+python workflows/biblical-cinematic/server/app.py
+# http://localhost:8000     → Scripture Mode
+# http://localhost:8000/custom → Custom Script Mode
+```
 
 ---
 
@@ -15,14 +23,21 @@ Contains two independent workflows:
 
 ### What It Does
 
-You paste in raw KJV scripture text. The app cleans and formats it, you review it, click one button, and 8–13 minutes later a fully produced cinematic video is waiting for you — complete with:
+You paste in raw KJV scripture text. The app cleans and formats it, you review it, click one button, and a fully produced cinematic video is waiting for you — complete with:
 
-- 20 AI-generated cinematic scene descriptions
-- Professional narration audio (ElevenLabs voices)
-- HD video with Ken Burns (pan & zoom) effects
-- Synchronized visuals and audio via JSON2Video
+- Claude AI-generated cinematic scene descriptions (intro + scripture scenes + outro)
+- FLUX Pro AI-generated images per scene
+- Kling AI video animation (v1.6/v2.1/v3.0)
+- Professional narration audio (ElevenLabs voices via JSON2Video)
+- HD video with synchronized visuals, narration, and subtitles
 
-**Cost per video:** ~$1.27 | **Render time:** 8–13 minutes
+**v10 Features:**
+- **Batch Fix Scenes** — check multiple scenes, edit prompts inline, regenerate all with ONE JSON2Video render (~$1.50 instead of $1.50 per scene)
+- **Stop Rendering** — cancel mid-render to save credits; completed scenes preserved for retry
+- **Render History** — browse past renders, view scenes, reload into fix panel
+- **Scene data sync** — fix panel always shows latest prompt data after edits
+
+**Cost per video:** ~$4.50–7.00 depending on Kling model | **Render time:** 10–20 minutes
 
 ---
 
@@ -48,42 +63,33 @@ Step 2 — YOUR REVIEW
   When satisfied, click "Approve & Generate Video."
   │
   ▼
-Step 3 — WEBHOOK TRIGGER
-  The server POSTs the cleaned text to your n8n webhook:
-    POST https://your-n8n.cloud/webhook/your-id
-    Body: { "text": "In the beginning God created..." }
-  n8n receives it instantly and begins the pipeline.
+Step 3 — VIDEO PIPELINE (v10 — no n8n)
+  The server splits scripture into narration chunks, then
+  Claude AI generates imagePrompt, motion, lighting per scene
+  plus intro/outro narration.
   │
   ▼
-Step 4 — SCENE GENERATION (Perplexity AI · sonar-pro)
-  n8n sends the text to Perplexity AI with a detailed prompt.
-  Perplexity generates exactly 20 cinematic scene descriptions,
-  each tailored for 16:9 HD video with visual storytelling.
-  Example output:
-    Scene 1: "A vast, dark void stretches endlessly — then a single
-    point of golden light explodes outward, illuminating swirling
-    cosmic dust and newborn stars..."
+Step 4 — MEDIA GENERATION (background thread)
+  For each scene:
+    → fal.ai FLUX Pro      → photorealistic 16:9 image
+    → fal.ai Kling v1.6/v2.1/v3.0 → 10-15s animated video clip
+  Progress bar tracks each scene in real time.
+  Use ⏹ Stop Rendering to cancel and save credits.
   │
   ▼
-Step 5 — NARRATION AUDIO (ElevenLabs)
-  n8n sends the original cleaned text to ElevenLabs TTS.
-  A professional narrator voice reads the full scripture passage.
-  The audio is timed at ~214 words per minute.
-  Output: a single narration audio file for the full video.
+Step 5 — FINAL RENDER (JSON2Video)
+  All scene videos + ElevenLabs narration + subtitles
+  assembled into one HD MP4. Download when done.
   │
   ▼
-Step 6 — VIDEO RENDERING (JSON2Video · Ken Burns template)
-  n8n sends the 20 scene descriptions + audio to JSON2Video.
-  JSON2Video uses the FIXED template to:
-    - Generate or source one image per scene
-    - Apply Ken Burns pan & zoom effects to each image
-    - Synchronize the narration audio across all 20 scenes
-    - Render the final HD MP4 (12–20 minutes long)
+Step 6 — FIX SCENES (optional)
+  Check scenes to fix, edit prompts inline, click
+  "Regenerate Selected Scenes" → ONE re-render.
   │
   ▼
-Step 7 — DONE
-  Check your JSON2Video dashboard for the finished video.
-  Download the MP4.
+Step 7 — POST-PRODUCTION & UPLOAD
+  Add intro/outro/logo (Step 4 panel), upload to YouTube (Step 5 panel).
+  Render history tracks all past renders for future reference.
 ```
 
 ---
@@ -350,19 +356,27 @@ AI Movie/
 │       └── assembler/                      ← FFmpeg final assembly
 │
 ├── workflows/
-│   └── biblical-cinematic/
-│       ├── README.md                       ← detailed biblical workflow docs
-│       ├── server/
-│       │   ├── app.py                      ← FastAPI web server (run this)
-│       │   ├── requirements.txt
-│       │   └── package.json                ← enables: npm start
-│       ├── text_processor/
-│       │   └── biblical_text_processor_v2.py  ← KJV text cleaner
-│       ├── n8n/
-│       │   └── Biblical-Video-Workflow-v6.0.2.json  ← import into n8n
-│       ├── templates/
-│       │   └── JSON2Video-Template-FIXED.json       ← import into JSON2Video
-│       └── archive/                        ← v1.0 through v6.0.1 history
+│   ├── biblical-cinematic/
+│   │   ├── README.md                       ← detailed biblical workflow docs
+│   │   ├── server/
+│   │   │   ├── app.py                      ← Unified FastAPI web server (run this)
+│   │   │   ├── requirements.txt
+│   │   │   └── package.json                ← enables: npm start
+│   │   ├── text_processor/
+│   │   │   └── biblical_text_processor_v2.py  ← KJV text cleaner
+│   │   ├── n8n/
+│   │   │   └── Biblical-Video-Workflow-v6.0.2.json  ← import into n8n
+│   │   ├── templates/
+│   │   │   └── JSON2Video-Template-FIXED.json       ← import into JSON2Video
+│   │   └── archive/                        ← v1.0 through v6.0.1 history
+│   │
+│   └── custom-script/
+│       ├── README.md                       ← custom script workflow docs
+│       ├── router.py                       ← FastAPI APIRouter (mounted at /custom)
+│       ├── server.py                       ← Standalone server (legacy, port 8500)
+│       ├── generate.py                     ← CLI pipeline
+│       ├── recover.py                      ← Recovery from fal.ai history
+│       └── example-trailer.txt             ← Example input script
 │
 └── output/                                 ← generated videos saved here
 ```

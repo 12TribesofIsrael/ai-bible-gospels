@@ -30,8 +30,17 @@ Install dependencies:
 pip install requests python-dotenv uvicorn fastapi
 ```
 
-## Web App (Recommended)
+## Web App (Recommended — Unified Server)
 
+The custom script UI is integrated into the main server with tab navigation:
+
+```bash
+python workflows/biblical-cinematic/server/app.py
+# Scripture Mode at http://localhost:8000
+# Custom Script Mode at http://localhost:8000/custom
+```
+
+**Standalone server (legacy):**
 ```bash
 python workflows/custom-script/server.py
 # Opens at http://localhost:8500
@@ -112,7 +121,8 @@ Claude will interpret it creatively and generate the right number of scenes.
 
 | File | Purpose |
 |------|---------|
-| `server.py` | Web UI on port 8500 — paste script, edit scenes, generate video |
+| `router.py` | FastAPI APIRouter — mounted in main app.py at `/custom`, all API routes + HTML UI |
+| `server.py` | Standalone web UI on port 8500 (legacy — use unified server instead) |
 | `generate.py` | CLI pipeline — script → scenes → FLUX → Kling → JSON2Video |
 | `recover.py` | Recovery script — fetches completed videos from fal.ai history |
 | `example-trailer.txt` | Example input — channel trailer script |

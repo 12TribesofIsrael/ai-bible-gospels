@@ -4,13 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-AI Movie — a personal workspace for building AI-generated video systems. Contains two workflows:
+AI Movie — a personal workspace for building AI-generated video systems. Contains three workflows, with the two production workflows merged into a single unified web app:
 
 | Workflow | Location | Status | Description |
 |---|---|---|---|
 | **General AI Movie** | root (`app.py`, `pipeline.py`, `src/`) | Reference | Python/Gradio pipeline: text prompt → images → video clips → narrated movie via fal.ai + OpenAI |
-| **Biblical Cinematic** | `workflows/biblical-cinematic/` | ✓ Production (v7.2) | KJV scripture → cleaned text → n8n Perplexity + ElevenLabs + JSON2Video → 8–13 min MP4 |
+| **Biblical Cinematic** | `workflows/biblical-cinematic/` | ✓ Production (v10) | KJV scripture → cleaned text → Claude AI scenes → FLUX + Kling + JSON2Video → cinematic MP4 |
 | **Custom Script** | `workflows/custom-script/` | ✓ Production | Any script/concept → Claude AI scenes → FLUX + Kling + JSON2Video → dynamic-length MP4 |
+
+**Unified Web App:** Both production workflows run on a single server at **http://localhost:8000** with tab navigation:
+- **Scripture Mode** (`/`) — Biblical Cinematic pipeline
+- **Custom Script Mode** (`/custom`) — Custom Script pipeline
 
 ---
 
@@ -68,39 +72,49 @@ pytest tests/
 - **FastAPI** (web server + API), **Python** (text processing), **n8n** (video pipeline orchestration)
 - **Perplexity AI** (scene gen), **fal.ai** (FLUX + Kling), **ElevenLabs** (voice), **JSON2Video** (assembly)
 
-### Full Pipeline (v8.0)
+### Full Pipeline (v10 — no n8n)
 ```
 Browser (http://localhost:8000)
-  → POST /api/clean    FastAPI server runs text processor → returns cleaned sections
-  → POST /api/generate FastAPI POSTs to n8n webhook
-      → n8n workflow:
-          → Perplexity sonar-pro    → 20 cinematic scene descriptions
+  → POST /api/clean          FastAPI server runs text processor → returns cleaned sections
+  → POST /v9/api/generate    Splits scripture into scene chunks → Claude AI generates image prompts
+      → Python pipeline (background thread):
           → fal.ai FLUX Pro         → generate image per scene
-          → fal.ai Kling v1.6       → animate each image to 5s video clip
-          → ElevenLabs              → narration audio (214 WPM)
-          → JSON2Video              → assembles video clips into final MP4
-  → GET  /api/status   Browser polls every 6s → real-time progress bar
-  → Final MP4 (8–13 min) with Download button
+          → fal.ai Kling v1.6/v2.1/v3.0 → animate each image to video clip
+          → JSON2Video              → templateless payload with ElevenLabs narration + subtitles → final MP4
+  → GET  /v9/api/status      Browser polls every 2s → real per-scene progress bar
+  → POST /v9/api/retry       Resume from failed scene
+  → POST /v9/api/fix-scene   Regenerate one scene without redoing the whole video
+  → POST /v9/api/fix-scenes  Batch-fix multiple scenes with ONE JSON2Video render
+  → POST /v9/api/stop        Stop pipeline mid-render to save credits
+  → GET  /v9/api/history     Browse past renders (persisted to JSON file)
+  → GET  /v9/api/history/{id} Full scene data for a past render
+  → Final MP4 with Download button
 ```
 
-**Cost:** ~$4.51/video (Kling Standard) | **Time:** ~15-25 min | **Version:** v8.0 (testing)
+**No n8n required.** Narration is the scripture text word-for-word. Claude only generates image prompts, motion, and lighting.
 
-### Start the web app
+**Cost:** ~$4.50–7.00/video depending on Kling model | **Version:** v10
+
+### Start the unified web app
 ```bash
 cd workflows/biblical-cinematic/server
 pip install -r requirements.txt   # first time only
 python app.py
 # Opens at http://localhost:8000
+# Scripture Mode at /  |  Custom Script Mode at /custom
 ```
 
 ### How to use
-1. Go to **http://localhost:8000**
+1. Go to **http://localhost:8000** (use nav tabs to switch between Scripture Mode and Custom Script Mode)
 2. Paste KJV scripture → **Convert & Clean**
 3. Review/edit the cleaned text → **Approve & Generate Video**
-4. Live progress bar tracks Perplexity → ElevenLabs → JSON2Video in real time
-5. Download the raw MP4 when done → drop it into `output/raw/`
-6. Scroll to **Step 4 — Post-Production** → click **↺ Refresh** → click **▶ Start Rendering**
-7. Progress bar tracks normalize → concat → logo overlay → **Download Final Video**
+4. Live progress bar tracks Claude AI → FLUX → Kling → JSON2Video in real time
+5. Use **⏹ Stop Rendering** to cancel mid-render and save credits (completed scenes preserved)
+6. Use **Fix Scenes** panel: check multiple scenes, edit prompts inline, regenerate all with ONE render
+7. Download the raw MP4 when done → drop it into `output/raw/`
+8. Browse **Render History** panel to view past renders or reload scenes into the fix panel
+9. Scroll to **Step 4 — Post-Production** → click **↺ Refresh** → click **▶ Start Rendering**
+10. Progress bar tracks normalize → concat → logo overlay → **Download Final Video**
 
 ### n8n setup notes
 - The n8n workflow must be **Published/Active** for the production webhook to fire
@@ -116,7 +130,8 @@ python app.py
 |---|---|
 | [workflows/biblical-cinematic/README.md](workflows/biblical-cinematic/README.md) | Complete setup guide |
 | [workflows/biblical-cinematic/ERRORS.md](workflows/biblical-cinematic/ERRORS.md) | Running log of bugs and root-cause fixes — check before debugging |
-| [workflows/biblical-cinematic/server/app.py](workflows/biblical-cinematic/server/app.py) | FastAPI server — `/api/clean`, `/api/generate`, `/api/status`, `/api/render/*` (Step 4), `/api/upload/*` (Step 5 YouTube) |
+| [workflows/biblical-cinematic/server/app.py](workflows/biblical-cinematic/server/app.py) | FastAPI server — `/api/clean`, `/api/render/*` (Step 4), `/api/upload/*` (Step 5), mounts v9 router at `/v9` + custom router at `/custom` |
+| [workflows/biblical-cinematic/server/biblical_pipeline.py](workflows/biblical-cinematic/server/biblical_pipeline.py) | v10 pipeline router — `/v9/api/generate`, `/v9/api/status`, `/v9/api/retry`, `/v9/api/fix-scene`, `/v9/api/fix-scenes`, `/v9/api/stop`, `/v9/api/history` (no n8n) |
 | [workflows/biblical-cinematic/server/requirements.txt](workflows/biblical-cinematic/server/requirements.txt) | Server dependencies |
 | [workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py](workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py) | KJV text cleaner/splitter (imported by server) |
 | [workflows/biblical-cinematic/n8n/v7.2-production.json](workflows/biblical-cinematic/n8n/v7.2-production.json) | **Current production workflow** — Import into n8n (v7.2: field-name-anchored JSON extraction, proven stable) |
@@ -211,7 +226,7 @@ See **[docs/v7-upgrade-plan.md](docs/v7-upgrade-plan.md)** for v8.0 spec: Kling 
 
 ### Full Pipeline
 ```
-Browser (http://localhost:8500) or CLI
+Browser (http://localhost:8000/custom) or CLI
   → Paste script/concept
   → Claude AI           → N cinematic scenes (dynamic count)
   → fal.ai FLUX Pro     → generate image per scene
@@ -221,7 +236,11 @@ Browser (http://localhost:8500) or CLI
 
 **No n8n required.** No template ID. Payload built dynamically in code.
 
-### Start the web app
+### Web App (merged into unified server)
+The custom script UI is available at **http://localhost:8000/custom** — part of the unified server.
+Start with `python workflows/biblical-cinematic/server/app.py`.
+
+**Standalone server (legacy):**
 ```bash
 python workflows/custom-script/server.py
 # Opens at http://localhost:8500
@@ -242,7 +261,8 @@ python workflows/custom-script/recover.py  # recovers completed videos from fal.
 ### Key Files
 | File | Purpose |
 |---|---|
-| [workflows/custom-script/server.py](workflows/custom-script/server.py) | FastAPI web UI — paste script, edit scenes, generate video, real-time progress (port 8500) |
+| [workflows/custom-script/router.py](workflows/custom-script/router.py) | FastAPI APIRouter — mounted in main app.py at `/custom`, contains all custom script API routes + HTML UI |
+| [workflows/custom-script/server.py](workflows/custom-script/server.py) | Standalone FastAPI web UI (legacy, port 8500) — use the unified server instead |
 | [workflows/custom-script/generate.py](workflows/custom-script/generate.py) | CLI pipeline — script → Claude scenes → FLUX → Kling → JSON2Video |
 | [workflows/custom-script/recover.py](workflows/custom-script/recover.py) | Recovery — fetches completed Kling videos from fal.ai history API, regenerates only missing scenes |
 | [workflows/custom-script/example-trailer.txt](workflows/custom-script/example-trailer.txt) | Example input — channel trailer script |
