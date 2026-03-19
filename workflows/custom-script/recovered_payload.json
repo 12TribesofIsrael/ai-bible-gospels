@@ -1,0 +1,326 @@
+{
+  "resolution": "full-hd",
+  "quality": "high",
+  "scenes": [
+    {
+      "id": "scene1",
+      "comment": "Scene 1",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene1_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929428/exV9ia-mlkddhL3-sKI8V_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene1_voice",
+          "type": "voice",
+          "text": "They scattered a nation across the four corners of the earth. They erased their names, their language, their very identity. But the prophecy declared they would awaken.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene2",
+      "comment": "Scene 2",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene2_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929435/jyo3Vmg-mTv-4t0c8PEeV_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene2_voice",
+          "type": "voice",
+          "text": "Welcome to AI Bible Gospels. We exist for one sacred purpose \u2014 to reveal the hidden identity of the 12 Tribes of Israel through Scripture, history, and prophecy.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene3",
+      "comment": "Scene 3",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene3_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929443/UmwV3TE57RjLtc4HtygL1_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene3_voice",
+          "type": "voice",
+          "text": "Who are the Tribe of Judah? Where did the Lost Tribes scatter? Why does Deuteronomy 28 read like a prophetic history of suffering and bondage?",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene4",
+      "comment": "Scene 4",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene4_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929451/eA_OkyIMsBXhKGYAB65Vp_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene4_voice",
+          "type": "voice",
+          "text": "We answer the questions no one else dares to ask. Every tribe. Every prophecy. Every connection they tried to erase from history.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene5",
+      "comment": "Scene 5",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene5_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a92945e/FKxEi1yNBES91UMPXCQvP_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene5_voice",
+          "type": "voice",
+          "text": "The Tribe of Judah \u2014 sold into slavery, scattered across foreign lands, yet destined by the Most High to rise in power and glory.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene6",
+      "comment": "Scene 6",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene6_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a92946b/PKMZcRIZpcy_atb81Y6gQ_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene6_voice",
+          "type": "voice",
+          "text": "The Tribe of Ephraim \u2014 from Puerto Rico to the Caribbean islands, fruitful and multiplying in strange lands, exactly as prophesied.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene7",
+      "comment": "Scene 7",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene7_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929478/sZrtIuR1pXoind4im47FM_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene7_voice",
+          "type": "voice",
+          "text": "The Tribe of Gad \u2014 scattered among 300 Native nations, warriors and hunters, dwelling in the wilderness as Scripture foretold.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene8",
+      "comment": "Scene 8",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene8_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929487/NKw8QGzN-ANs7q1Bf_H3G_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene8_voice",
+          "type": "voice",
+          "text": "Deuteronomy 28 \u2014 every curse fulfilled with chilling accuracy. The slave ships. The bondage. The scattered nation. All prophesied millennia ago.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene9",
+      "comment": "Scene 9",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene9_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929494/3_dWV4XqtjeiqZ7g68wEK_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene9_voice",
+          "type": "voice",
+          "text": "The Apocrypha \u2014 sacred books they removed from Scripture, hiding truths about Israel's identity and prophetic destiny from the world.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene10",
+      "comment": "Scene 10",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene10_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a9294ea/N7y_NIIfdp8IoiiJDNu_Y_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene10_voice",
+          "type": "voice",
+          "text": "But the story doesn't end in suffering. The prophecy declares the 12 Tribes will awaken, remember their true identity, and be gloriously restored.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene11",
+      "comment": "Scene 11",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene11_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a9294f7/D55wWLm0H2JlG8rfN4Orf_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene11_voice",
+          "type": "voice",
+          "text": "That prophetic awakening is happening right now. The truth is being revealed. And you are witnessing biblical history unfold.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene12",
+      "comment": "Scene 12",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene12_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929503/qDbNxJqeJJXpp4cXRuu0V_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene12_voice",
+          "type": "voice",
+          "text": "Subscribe to AI Bible Gospels. Join the awakening. New revelations every day. The hidden truth of Israel's identity awaits.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    },
+    {
+      "id": "scene13",
+      "comment": "Scene 13",
+      "duration": "auto",
+      "elements": [
+        {
+          "id": "scene13_bg",
+          "type": "video",
+          "src": "https://v3b.fal.media/files/b/0a929510/hEXdsQWCmpteciMYjxmVT_output.mp4",
+          "resize": "cover",
+          "loop": -1,
+          "duration": -2
+        },
+        {
+          "id": "scene13_voice",
+          "type": "voice",
+          "text": "Begin your journey of truth. Start with our 12 Tribes series. The awakening of Israel starts now.",
+          "voice": "NgBYGKDDq2Z8Hnhatgma",
+          "model": "elevenlabs",
+          "speed": 0.9
+        }
+      ]
+    }
+  ],
+  "elements": [
+    {
+      "id": "movie_subtitles",
+      "type": "subtitles",
+      "language": "en",
+      "model": "default",
+      "settings": {
+        "style": "classic",
+        "font-family": "Oswald Bold",
+        "font-size": 80,
+        "position": "bottom-center",
+        "line-color": "#CCCCCC",
+        "word-color": "#FFFF00",
+        "outline-color": "#000000",
+        "outline-width": 8,
+        "shadow-color": "#000000",
+        "shadow-offset": 6,
+        "max-words-per-line": 4
+      }
+    }
+  ]
+}

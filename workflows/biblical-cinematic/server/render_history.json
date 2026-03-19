@@ -1,0 +1,147 @@
+[
+  {
+    "id": "20260319_170834",
+    "created_at": "2026-03-19T17:08:34.720237",
+    "book": "Revelation",
+    "chapter": "21",
+    "model": "v2.1",
+    "status": "done",
+    "scene_count": 19,
+    "scenes": [
+      {
+        "type": "intro",
+        "narration": "In the Book of Revelation, chapter twenty-one, the apostle John witnesses the ultimate fulfillment of the Most High's promise \u2014 a new heaven and earth for His chosen people.",
+        "imagePrompt": "Majestic aerial view of ancient scrolls unfurling with golden Hebrew letters glowing against dark storm clouds, divine light piercing through darkness, ancient parchment texture with ornate borders, photorealistic, cinematic, 8K detail",
+        "motion": "Slow downward descent through swirling clouds toward the ancient scrolls",
+        "lighting": "Dramatic golden divine light cutting through dark storm clouds with warm amber highlights"
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Breathtaking cosmic transformation scene showing old earth dissolving into stardust as new pristine earth materializes, crystalline new Jerusalem descending from golden clouds like a radiant bride in white robes, massive city with gleaming walls and towers floating down from heaven, vast celestial backdrop, photorealistic, cinematic, 8K detail",
+        "motion": "Epic pull back revealing the magnitude of the cosmic transformation",
+        "lighting": "Brilliant white divine light emanating from the descending city with golden aura",
+        "narration": "The Book of Revelation. Chapter Twenty One. And I saw a new heaven and a new earth: for the first heaven and the first earth were passed away; and there was no more sea. And I John saw the holy city, new Jerusalem, coming down from God out of heaven, prepared as a bride adorned for her husband."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Powerful close-up of a Black Hebrew Israelite man with rich dark skin and natural locs looking up in awe, wearing traditional white linen robes with tzitzit fringes, tears of joy on his face as he hears the great voice from heaven, other Black Hebrew Israelites in background with raised hands, photorealistic, cinematic, 8K detail",
+        "motion": "Slow upward tilt from the man's face toward the heavenly light",
+        "lighting": "Soft golden light cascading down from above, illuminating faces with warm glow",
+        "narration": "And I heard a great voice out of heaven saying, Behold, the tabernacle of God is with men, and he will dwell with them, and they shall be his people, and God himself shall be with them, and be their God."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Intimate scene of the Most High's hands gently wiping tears from the eyes of a Black Hebrew Israelite woman with beautiful dark skin and traditional head wrap, her face transforming from sorrow to joy, other Hebrew families embracing in background, ancient stone steps leading to temple, photorealistic, cinematic, 8K detail",
+        "motion": "Gentle zoom in on the tender moment of comfort",
+        "lighting": "Warm sunrise light with soft shadows creating peaceful atmosphere",
+        "narration": "And God shall wipe away all tears from their eyes; and there shall be no more death, neither sorrow, nor crying, neither shall there be any more pain: for the former things are passed away. And he that sat upon the throne said, Behold, I make all things new."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Majestic throne room scene with brilliant throne emanating pure light, ancient Hebrew scrolls floating and glowing around the throne, quill pen writing in golden letters on pristine parchment, Alpha and Omega symbols carved in stone, divine presence filling the space, photorealistic, cinematic, 8K detail",
+        "motion": "Sweeping circular pan around the magnificent throne",
+        "lighting": "Intense white light from throne with golden reflections on scrolls and stone",
+        "narration": "And he said unto me, Write: for these words are true and faithful. And he said unto me, It is done. I am Alpha and Omega, the beginning and the end. I will give unto him that is athirst of the fountain of the water of life freely."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Powerful contrast scene showing Black Hebrew Israelite man with dark skin and traditional robes receiving a crown of life on one side, while on the other side figures disappearing into fiery lake with flames and brimstone, stark division between light and darkness, photorealistic, cinematic, 8K detail",
+        "motion": "Dramatic horizontal tracking shot revealing both destinies",
+        "lighting": "Split lighting with golden divine light on left, orange hellfire glow on right",
+        "narration": "He that overcometh shall inherit all things; and I will be his God, and he shall be my son. But the fearful, and unbelieving, and the abominable, and murderers, and whoremongers, and sorcerers, and idolaters, and all liars, shall have their part in the lake which burneth with fire and brimstone:"
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Magnificent angel with olive Mediterranean skin wearing flowing white robes with golden sash, holding seven crystal vials, speaking to Black Hebrew Israelite apostle John with rich dark skin and natural hair, ancient mountain setting, bride figure in radiant white approaching in distance, photorealistic, cinematic, 8K detail",
+        "motion": "Medium shot slowly pushing in on the angel and John's conversation",
+        "lighting": "Twilight blue hour with ethereal silver light surrounding the angel",
+        "narration": "which is the second death. And there came unto me one of the seven angels which had the seven vials full of the seven last plagues, and talked with me, saying, Come hither, I will show thee the bride, the Lamb\u2019s wife."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Spectacular aerial view from great mountain peak showing the holy Jerusalem descending from clouds, massive city with jasper walls gleaming like crystal, twelve ornate gates visible, divine glory radiating from every surface, Black Hebrew Israelite John in foreground viewing the scene, photorealistic, cinematic, 8K detail",
+        "motion": "Sweeping aerial tracking shot following the city's descent",
+        "lighting": "Crystal clear light refracting through the jasper city creating rainbow prisms",
+        "narration": "And he carried me away in the spirit to a great and high mountain, and showed me that great city, the holy Jerusalem, descending out of heaven from God, Having the glory of God: and her light was like unto a stone most precious, even like a jasper stone, clear as crystal;"
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Detailed view of massive city wall with twelve magnificent gates, each guarded by a powerful angel in white robes, Hebrew tribal names carved in golden letters above each gate, three eastern gates prominently featured with intricate stonework and precious metal inlays, photorealistic, cinematic, 8K detail",
+        "motion": "Close-up horizontal pan across the eastern gates",
+        "lighting": "Warm golden morning light highlighting the carved Hebrew letters",
+        "narration": "And had a wall great and high, and had twelve gates, and at the gates twelve angels, and names written thereon, which are the names of the twelve tribes of the children of Israel: On the east three gates;"
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Wide establishing shot showing all four sides of the square city with three gates on each side, massive foundation stones visible with apostolic names carved in them, perfect geometric symmetry, twelve angels positioned at their respective gates, Hebrew architecture throughout, photorealistic, cinematic, 8K detail",
+        "motion": "High aerial orbit shot revealing the city's perfect square layout",
+        "lighting": "Balanced natural light showcasing the architectural precision",
+        "narration": "on the north three gates; on the south three gates; and on the west three gates. And the wall of the city had twelve foundations, and in them the names of the twelve apostles of the Lamb."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Angel with Mediterranean olive skin holding golden measuring reed, carefully measuring the enormous city walls and gates, Black Hebrew Israelite John with dark skin and locs watching in amazement, city stretching endlessly in perfect cube formation, ancient measuring tools and scrolls, photorealistic, cinematic, 8K detail",
+        "motion": "Over-shoulder shot following the angel's measuring process",
+        "lighting": "Bright midday sun casting sharp shadows that emphasize the measurements",
+        "narration": "And he that talked with me had a golden reed to measure the city, and the gates thereof, and the wall thereof. And the city lieth foursquare, and the length is as large as the breadth: and he measured the city with the reed, twelve thousand furlongs."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Breathtaking perspective shot emphasizing the cube-shaped city with equal length, width, and height, massive scale dwarfing mountains below, wall sections showing precise measurements, geometric perfection in every detail, divine architecture beyond human comprehension, photorealistic, cinematic, 8K detail",
+        "motion": "Dramatic pull back revealing the impossible scale of the cubic city",
+        "lighting": "High contrast lighting emphasizing the geometric shadows and angles",
+        "narration": "The length and the breadth and the height of it are equal. And he measured the wall thereof, an hundred and forty and four cubits, according to the measure of a man, that is, of the angel."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Close-up detail of jasper wall construction with translucent golden city buildings visible through clear glass-like gold streets, intricate masonry work, precious stones embedded throughout, light refracting through the jasper creating beautiful patterns, photorealistic, cinematic, 8K detail",
+        "motion": "Slow zoom in on the exquisite wall details and materials",
+        "lighting": "Soft refracted light creating prismatic rainbow effects through jasper",
+        "narration": "And the building of the wall of it was of jasper: and the city was pure gold, like unto clear glass. And the foundations of the wall of the city were garnished with all manner of precious stones."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Magnificent foundation display showing twelve different precious stones in perfect arrangement: brilliant jasper, deep blue sapphire, chalcedony, emerald, sardonyx layers, sardius red, golden chrysolite, pale beryl, yellow topaz, green chrysoprasus, each stone glowing with inner light, photorealistic, cinematic, 8K detail",
+        "motion": "Smooth horizontal pan across the foundation stones showcasing each gem",
+        "lighting": "Individual spotlighting on each stone revealing their unique colors and brilliance",
+        "narration": "The first foundation was jasper; the second, sapphire; the Revelation third, a chalcedony; the fourth, an emerald; The fifth, sardonyx; the sixth, sardius; the seventh, chrysolite; the eighth, beryl; the ninth, a topaz; the tenth, a chrysoprasus;"
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Spectacular view of twelve massive pearl gates, each gate carved from a single enormous pearl with natural luster and iridescence, jacinth and amethyst foundation stones completing the set, streets of transparent gold reflecting like mirrors, divine craftsmanship in every detail, photorealistic, cinematic, 8K detail",
+        "motion": "Tracking shot moving through one of the pearl gates into the city",
+        "lighting": "Pearlescent lighting with soft iridescent reflections on all surfaces",
+        "narration": "the eleventh, a jacinth; the twelfth, an amethyst. And the twelve gates were twelve pearls; every several gate was of one pearl: and the street of the city was pure gold, as it were transparent glass. And I saw no temple therein:"
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Interior city scene with no traditional temple building, instead showing the presence of the Most High and the Lamb filling the entire space with glorious light, Black Hebrew Israelites with rich dark skin and traditional robes worshiping throughout transparent golden streets, divine presence everywhere, photorealistic, cinematic, 8K detail",
+        "motion": "360-degree rotating shot showing the omnipresent divine glory",
+        "lighting": "Omnidirectional divine light with no shadows, pure brilliant illumination",
+        "narration": "for the Lord God Almighty and the Lamb are the temple of it. And the city had no need of the sun, neither of the moon, to shine in it: for the glory of God did lighten it, and the Lamb is the light thereof."
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Diverse nations walking in procession toward the holy city, kings from various ethnicities carrying treasures and gifts, Black Hebrew Israelite citizens welcoming them at the open gates, continuous daylight with no sun or moon visible, glory light illuminating everything, photorealistic, cinematic, 8K detail",
+        "motion": "Wide tracking shot following the procession of nations",
+        "lighting": "Consistent divine daylight with warm golden undertones throughout",
+        "narration": "And the nations of them which are saved shall walk in the light of it: and the kings of the earth do bring their glory and honour into it. And the gates of it shall not be shut at all by day:"
+      },
+      {
+        "type": "scripture",
+        "imagePrompt": "Nighttime scene showing the city gates standing wide open with pure divine light streaming out, various peoples bringing their cultural treasures and honors, guards ensuring only the righteous enter, Book of Life visible on golden pedestal with names glowing, photorealistic, cinematic, 8K detail",
+        "motion": "Slow push in through the open gates toward the Book of Life",
+        "lighting": "Dramatic contrast between dark night outside and brilliant light within the city",
+        "narration": "for there shall be no night there. And they shall bring the glory and honour of the nations into it. And there shall in no wise enter into it any thing that defileth, neither whatsoever worketh abomination, or maketh a lie:"
+      },
+      {
+        "type": "outro",
+        "narration": "The New Jerusalem awaits the faithful. Subscribe to AI Bible Gospels for more revelations of Scripture, history, and prophecy. Like, share, and stay blessed in the truth.",
+        "imagePrompt": "Cinematic aerial view pulling away from the glorious New Jerusalem with golden light radiating outward, ancient Hebrew scrolls floating in the foreground, divine light beams extending toward the viewer, majestic city shrinking into heavenly clouds, photorealistic, cinematic, 8K detail",
+        "motion": "Epic pull back and ascent away from the holy city into the heavens",
+        "lighting": "Warm golden divine light fading to soft heavenly glow in the distance"
+      }
+    ],
+    "video_url": "https://json2video-cdn1.s3.amazonaws.com/clients/9DS66w8oSB/renders/2026-03-19-64599.mp4"
+  }
+]
