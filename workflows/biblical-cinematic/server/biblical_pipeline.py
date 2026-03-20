@@ -44,7 +44,7 @@ KLING_MODELS = {
 }
 
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
-VOICE_SPEED = 0.9
+VOICE_SPEED = 0.8
 
 HISTORY_FILE = Path(__file__).parent / "render_history.json"
 
