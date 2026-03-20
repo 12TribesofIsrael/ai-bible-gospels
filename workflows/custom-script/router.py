@@ -128,9 +128,9 @@ def generate_scenes_from_script(script_text):
     resp = requests.post(
         ANTHROPIC_URL,
         headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
-        json={"model": "claude-sonnet-4-20250514", "max_tokens": 8000,
+        json={"model": "claude-sonnet-4-20250514", "max_tokens": 16000,
               "messages": [{"role": "user", "content": f"{SCENE_GENERATION_PROMPT}\n\n---\n\nSCRIPT/CONCEPT:\n\n{script_text}"}]},
-        timeout=120,
+        timeout=300,
     )
     resp.raise_for_status()
     content = resp.json()["content"][0]["text"]
@@ -597,6 +597,7 @@ CUSTOM_LANDING_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>Custom Script → Video | AI Bible Gospels</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -1121,7 +1122,7 @@ async function loadHistory() {
       +'<span class="text-xs text-gray-400">' + new Date(h.created_at).toLocaleString() + '</span>'
       +'<span class="text-xs text-amber-400">' + h.scene_count + ' scenes</span>'
       +'<a href="' + (h.video_url||'#') + '" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 ml-auto">Download</a>'
-      +'<button onclick="loadHistoryIntoFix(\''+h.id+'\')" class="text-xs text-purple-400 hover:text-purple-300">Load into Fix</button>'
+      +'<button onclick="loadHistoryIntoFix(\\x27'+h.id+'\\x27)" class="text-xs text-purple-400 hover:text-purple-300">Load into Fix</button>'
       +'</div>'
     ).join('');
   } catch(e) { c.innerHTML = '<p class="text-xs text-red-400">Failed to load history</p>'; }
