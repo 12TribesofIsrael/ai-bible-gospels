@@ -14,6 +14,8 @@ import os
 import threading
 import time
 import traceback
+from datetime import datetime
+from pathlib import Path
 
 import requests
 from fastapi import APIRouter, HTTPException
@@ -32,6 +34,8 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
 VOICE_SPEED = 0.9
 
+HISTORY_FILE = Path(__file__).parent / "custom_render_history.json"
+
 # ---------------------------------------------------------------------------
 # Shared pipeline state
 # ---------------------------------------------------------------------------
@@ -44,9 +48,11 @@ pipeline_state = {
     "video_url": None,
     "error": None,
     "processed": [],
+    "previews": {},
 }
 
 lock = threading.Lock()
+stop_requested = threading.Event()
 
 SCENE_GENERATION_PROMPT = """You are a cinematic video production expert for AI Bible Gospels — a channel revealing the hidden identity of the 12 Tribes of Israel through Scripture, history, and prophecy.
 
@@ -108,6 +114,12 @@ class FixSceneInput(BaseModel):
     scene_index: int
     scene: dict
 
+class BatchFixInput(BaseModel):
+    fixes: list  # [{scene_index: int, scene: dict}, ...]
+
+class PreviewScenesInput(BaseModel):
+    fixes: list  # [{scene_index: int, scene: dict}, ...]
+
 
 # ---------------------------------------------------------------------------
 # Pipeline functions
@@ -161,6 +173,10 @@ def build_json2video_payload(scenes_data):
         "outline-color": "#000000", "outline-width": 8, "shadow-color": "#000000",
         "shadow-offset": 6, "max-words-per-line": 4,
     }
+    movie_subtitles = {
+        "id": "movie_subtitles", "type": "subtitles", "language": "en",
+        "model": "default", "settings": subtitle_settings,
+    }
     scenes = []
     for i, s in enumerate(scenes_data, 1):
         scenes.append({
@@ -168,10 +184,9 @@ def build_json2video_payload(scenes_data):
             "elements": [
                 {"id": f"scene{i}_bg", "type": "video", "src": s["video_url"], "resize": "cover", "loop": -1, "duration": -2},
                 {"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": VOICE_ID, "model": "elevenlabs", "speed": VOICE_SPEED},
-                {"id": f"scene{i}_subs", "type": "subtitles", "language": "en", "model": "transcription", "settings": subtitle_settings, "transcript": s["narration"]},
             ],
         })
-    return {"resolution": "full-hd", "quality": "high", "scenes": scenes}
+    return {"resolution": "full-hd", "quality": "high", "elements": [movie_subtitles], "scenes": scenes}
 
 
 def submit_and_poll_json2video(payload):
@@ -179,6 +194,8 @@ def submit_and_poll_json2video(payload):
     resp.raise_for_status()
     project_id = resp.json().get("project") or resp.json().get("id")
     while True:
+        if stop_requested.is_set():
+            raise RuntimeError("Stopped by user")
         time.sleep(10)
         resp = requests.get(JSON2VIDEO_URL, headers={"x-api-key": JSON2VIDEO_API_KEY}, params={"project": project_id}, timeout=30)
         resp.raise_for_status()
@@ -193,11 +210,38 @@ def submit_and_poll_json2video(payload):
 
 
 # ---------------------------------------------------------------------------
+# History helpers
+# ---------------------------------------------------------------------------
+def load_history():
+    if HISTORY_FILE.exists():
+        try:
+            return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+    return []
+
+
+def save_to_history(scenes, video_url, scene_count):
+    history = load_history()
+    entry = {
+        "id": datetime.now().strftime("%Y%m%d_%H%M%S"),
+        "created_at": datetime.now().isoformat(),
+        "status": "done",
+        "scene_count": scene_count,
+        "scenes": scenes,
+        "video_url": video_url,
+    }
+    history.insert(0, entry)
+    HISTORY_FILE.write_text(json.dumps(history, indent=2), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
 # Background runners
 # ---------------------------------------------------------------------------
 def run_pipeline(scenes, resume_from=0, existing_processed=None):
     global pipeline_state
     try:
+        stop_requested.clear()
         total = len(scenes)
         processed = list(existing_processed) if existing_processed else []
         with lock:
@@ -206,10 +250,18 @@ def run_pipeline(scenes, resume_from=0, existing_processed=None):
         for i, scene in enumerate(scenes, 1):
             if i <= resume_from:
                 continue
+            if stop_requested.is_set():
+                with lock:
+                    pipeline_state.update(phase="stopped", message=f"Stopped after scene {i-1}/{total}. Completed scenes preserved.")
+                return
             with lock:
                 pipeline_state["current_scene"] = i
                 pipeline_state["message"] = f"Scene {i}/{total} — Generating FLUX image..."
             image_url = generate_image(scene)
+            if stop_requested.is_set():
+                with lock:
+                    pipeline_state.update(phase="stopped", message=f"Stopped after scene {i-1}/{total}. Completed scenes preserved.")
+                return
             with lock:
                 pipeline_state["message"] = f"Scene {i}/{total} — Generating Kling video..."
             video_url = generate_video(image_url, scene)
@@ -224,20 +276,28 @@ def run_pipeline(scenes, resume_from=0, existing_processed=None):
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Video complete!")
+        save_to_history(scenes, mp4_url, total)
     except Exception as e:
-        with lock:
-            pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
-        traceback.print_exc()
+        if "Stopped by user" in str(e):
+            with lock:
+                pipeline_state.update(phase="stopped", message="Stopped during render. Completed scenes preserved.")
+        else:
+            with lock:
+                pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+            traceback.print_exc()
 
 
 def run_fix_scene(scene_index, scene, processed):
     global pipeline_state
     try:
+        stop_requested.clear()
         total = len(processed)
         idx = scene_index + 1
         with lock:
             pipeline_state.update(phase="generating_media", current_scene=idx, total_scenes=total,
                                   message=f"Fixing Scene {idx}/{total} — Generating FLUX image...", error=None, video_url=None)
+            if pipeline_state["scenes"]:
+                pipeline_state["scenes"][scene_index].update(scene)
         image_url = generate_image(scene)
         with lock:
             pipeline_state["message"] = f"Fixing Scene {idx}/{total} — Generating Kling video..."
@@ -249,10 +309,131 @@ def run_fix_scene(scene_index, scene, processed):
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Fixed video complete!")
+        save_to_history(pipeline_state.get("scenes", []), mp4_url, total)
     except Exception as e:
         with lock:
             pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
         traceback.print_exc()
+
+
+def run_fix_scenes(fixes, processed):
+    """Batch fix: regenerate FLUX + Kling for multiple scenes, then ONE JSON2Video render."""
+    global pipeline_state
+    try:
+        stop_requested.clear()
+        total_fixes = len(fixes)
+        total_scenes = len(processed)
+        with lock:
+            pipeline_state.update(phase="generating_media", current_scene=0, total_scenes=total_fixes,
+                                  message=f"Batch fixing {total_fixes} scenes...", error=None, video_url=None)
+        for fi, fix in enumerate(fixes):
+            if stop_requested.is_set():
+                with lock:
+                    pipeline_state.update(phase="stopped", message=f"Stopped after fixing {fi}/{total_fixes} scenes.")
+                return
+            idx = fix["scene_index"]
+            scene = fix["scene"]
+            with lock:
+                pipeline_state["current_scene"] = fi + 1
+                pipeline_state["message"] = f"Fix {fi+1}/{total_fixes} — Scene {idx+1} — FLUX image..."
+                if pipeline_state["scenes"]:
+                    pipeline_state["scenes"][idx].update(scene)
+            image_url = generate_image(scene)
+            if stop_requested.is_set():
+                with lock:
+                    pipeline_state.update(phase="stopped", message=f"Stopped after fixing {fi}/{total_fixes} scenes.")
+                return
+            with lock:
+                pipeline_state["message"] = f"Fix {fi+1}/{total_fixes} — Scene {idx+1} — Kling video..."
+            video_url = generate_video(image_url, scene)
+            processed[idx] = {"narration": scene["narration"], "video_url": video_url}
+            with lock:
+                pipeline_state["processed"] = list(processed)
+        with lock:
+            pipeline_state.update(phase="rendering", message="Submitting all scenes to JSON2Video...")
+        payload = build_json2video_payload(processed)
+        mp4_url = submit_and_poll_json2video(payload)
+        with lock:
+            pipeline_state.update(phase="done", video_url=mp4_url, message="Batch fix complete!")
+        save_to_history(pipeline_state.get("scenes", []), mp4_url, total_scenes)
+    except Exception as e:
+        if "Stopped by user" in str(e):
+            with lock:
+                pipeline_state.update(phase="stopped", message="Stopped during render.")
+        else:
+            with lock:
+                pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+            traceback.print_exc()
+
+
+def run_preview_scenes(fixes, processed):
+    """Preview: regenerate FLUX + Kling for selected scenes, NO JSON2Video render."""
+    global pipeline_state
+    try:
+        stop_requested.clear()
+        total_fixes = len(fixes)
+        with lock:
+            pipeline_state.update(phase="previewing", current_scene=0, total_scenes=total_fixes,
+                                  message=f"Previewing {total_fixes} scenes...", error=None, video_url=None, previews={})
+        for fi, fix in enumerate(fixes):
+            if stop_requested.is_set():
+                with lock:
+                    pipeline_state.update(phase="stopped", message=f"Stopped after previewing {fi}/{total_fixes} scenes.")
+                return
+            idx = fix["scene_index"]
+            scene = fix["scene"]
+            with lock:
+                pipeline_state["current_scene"] = fi + 1
+                pipeline_state["message"] = f"Preview {fi+1}/{total_fixes} — Scene {idx+1} — FLUX image..."
+                if pipeline_state["scenes"]:
+                    pipeline_state["scenes"][idx].update(scene)
+            image_url = generate_image(scene)
+            if stop_requested.is_set():
+                with lock:
+                    pipeline_state.update(phase="stopped", message=f"Stopped after previewing {fi}/{total_fixes} scenes.")
+                return
+            with lock:
+                pipeline_state["message"] = f"Preview {fi+1}/{total_fixes} — Scene {idx+1} — Kling video..."
+            video_url = generate_video(image_url, scene)
+            with lock:
+                pipeline_state["previews"][str(idx)] = {"image_url": image_url, "video_url": video_url}
+                pipeline_state["processed"] = list(processed)
+                # Update processed with new video for this scene
+                processed[idx] = {"narration": scene["narration"], "video_url": video_url}
+                pipeline_state["processed"] = list(processed)
+        with lock:
+            pipeline_state.update(phase="preview_ready", message=f"Preview complete — {total_fixes} scenes ready for review.")
+    except Exception as e:
+        if "Stopped by user" in str(e):
+            with lock:
+                pipeline_state.update(phase="stopped", message="Stopped during preview.")
+        else:
+            with lock:
+                pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+            traceback.print_exc()
+
+
+def run_approve_fixes(processed):
+    """After preview approval, submit ONE JSON2Video render with all updated scenes."""
+    global pipeline_state
+    try:
+        stop_requested.clear()
+        total = len(processed)
+        with lock:
+            pipeline_state.update(phase="rendering", message="Submitting approved scenes to JSON2Video...", error=None, video_url=None)
+        payload = build_json2video_payload(processed)
+        mp4_url = submit_and_poll_json2video(payload)
+        with lock:
+            pipeline_state.update(phase="done", video_url=mp4_url, message="Approved render complete!")
+        save_to_history(pipeline_state.get("scenes", []), mp4_url, total)
+    except Exception as e:
+        if "Stopped by user" in str(e):
+            with lock:
+                pipeline_state.update(phase="stopped", message="Stopped during render.")
+        else:
+            with lock:
+                pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+            traceback.print_exc()
 
 
 # ---------------------------------------------------------------------------
@@ -326,6 +507,76 @@ async def api_fix_scene(body: FixSceneInput):
     thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed)), daemon=True)
     thread.start()
     return {"status": "fixing", "scene": body.scene_index + 1, "total_scenes": len(processed)}
+
+
+@custom_router.post("/api/fix-scenes")
+async def api_fix_scenes(body: BatchFixInput):
+    missing = [k for k, v in {"FAL_KEY": FAL_KEY, "JSON2VIDEO_API_KEY": JSON2VIDEO_API_KEY}.items() if not v]
+    if missing:
+        raise HTTPException(400, f"Missing env vars: {', '.join(missing)}")
+    if pipeline_state["phase"] in ("generating_media", "rendering", "previewing"):
+        raise HTTPException(409, "Pipeline already running")
+    with lock:
+        processed = pipeline_state.get("processed", [])
+    if not processed:
+        raise HTTPException(400, "No completed video to fix")
+    thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed)), daemon=True)
+    thread.start()
+    return {"status": "fixing", "fix_count": len(body.fixes)}
+
+
+@custom_router.post("/api/preview-scenes")
+async def api_preview_scenes(body: PreviewScenesInput):
+    missing = [k for k, v in {"FAL_KEY": FAL_KEY}.items() if not v]
+    if missing:
+        raise HTTPException(400, f"Missing env vars: {', '.join(missing)}")
+    if pipeline_state["phase"] in ("generating_media", "rendering", "previewing"):
+        raise HTTPException(409, "Pipeline already running")
+    with lock:
+        processed = pipeline_state.get("processed", [])
+    if not processed:
+        raise HTTPException(400, "No completed video to preview fixes for")
+    thread = threading.Thread(target=run_preview_scenes, args=(body.fixes, list(processed)), daemon=True)
+    thread.start()
+    return {"status": "previewing", "fix_count": len(body.fixes)}
+
+
+@custom_router.post("/api/approve-fixes")
+async def api_approve_fixes():
+    if pipeline_state["phase"] not in ("preview_ready", "done", "idle", "error", "stopped"):
+        raise HTTPException(409, "Pipeline is still running")
+    with lock:
+        processed = pipeline_state.get("processed", [])
+    if not processed:
+        raise HTTPException(400, "No scenes to render")
+    thread = threading.Thread(target=run_approve_fixes, args=(list(processed),), daemon=True)
+    thread.start()
+    return {"status": "rendering"}
+
+
+@custom_router.post("/api/stop")
+async def api_stop():
+    stop_requested.set()
+    with lock:
+        phase = pipeline_state["phase"]
+    if phase in ("generating_media", "rendering", "previewing"):
+        return {"status": "stopping", "message": "Stop signal sent"}
+    return {"status": "not_running", "message": f"Pipeline is {phase}"}
+
+
+@custom_router.get("/api/history")
+async def api_history():
+    history = load_history()
+    return [{"id": h["id"], "created_at": h["created_at"], "scene_count": h["scene_count"], "video_url": h.get("video_url")} for h in history]
+
+
+@custom_router.get("/api/history/{history_id}")
+async def api_history_detail(history_id: str):
+    history = load_history()
+    for h in history:
+        if h["id"] == history_id:
+            return h
+    raise HTTPException(404, "History entry not found")
 
 
 @custom_router.get("/api/status")
@@ -443,6 +694,7 @@ Example: A channel trailer about the 12 Tribes of Israel, their scattering, and 
         <div class="flex items-center gap-3 mb-4">
           <span class="spinner" id="pipelineSpinner"></span>
           <span id="pipelinePhase" class="text-sm text-amber-400 font-medium">Starting...</span>
+          <button onclick="stopPipeline()" id="btnStop" class="ml-auto bg-red-700 hover:bg-red-600 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors">⏹ Stop Rendering</button>
         </div>
         <div class="w-full bg-gray-800 rounded-full h-3 mb-3">
           <div id="progressBar" class="progress-fill bg-amber-500 h-3 rounded-full" style="width:0%"></div>
@@ -468,42 +720,41 @@ Example: A channel trailer about the 12 Tribes of Israel, their scattering, and 
       </div>
     </section>
 
-    <!-- STEP 5: Fix a Scene -->
+    <!-- STEP 5: Fix Scenes (Batch + Preview) -->
     <section id="step5" class="mb-10 hidden">
       <div class="flex items-center gap-3 mb-4">
         <span class="bg-purple-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">5</span>
-        <h2 class="title-font text-lg font-semibold text-white">Fix a Scene</h2>
+        <h2 class="title-font text-lg font-semibold text-white">Fix Scenes</h2>
+        <span id="fixCostEstimate" class="text-xs text-gray-500 ml-auto"></span>
       </div>
-      <p class="text-xs text-gray-400 mb-4">Not happy with an image? Edit the prompt below and regenerate just that one scene. All other scenes stay the same — only costs ~$1.74 (FLUX + Kling + JSON2Video render).</p>
-      <div class="bg-gray-900 border border-gray-700 rounded-xl p-5">
-        <div class="flex items-center gap-3 mb-4">
-          <label class="text-xs text-gray-400">Scene #</label>
-          <select id="fixSceneIndex" class="bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500">
-          </select>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Narration</label>
-            <textarea id="fixNarration" rows="3" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500"></textarea>
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Image Prompt</label>
-            <textarea id="fixImagePrompt" rows="3" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500"></textarea>
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Motion</label>
-            <input id="fixMotion" type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500" />
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Lighting</label>
-            <input id="fixLighting" type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500" />
-          </div>
-        </div>
-        <p class="text-xs text-yellow-500 mb-3">Tip: Never put text/words in the image prompt — FLUX misspells them. Let subtitles handle all on-screen text.</p>
-        <button onclick="fixScene()" id="btnFixScene"
-          class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors text-sm">
-          Regenerate This Scene →
+      <p class="text-xs text-gray-400 mb-4">Check scenes to fix, edit prompts inline. <strong>Preview</strong> generates FLUX image + Kling video only (~$0.69/scene) so you can review before committing to a render (~$1.50).</p>
+      <div id="fixScenesContainer" class="space-y-3 mb-4"></div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button onclick="previewSelectedScenes()" id="btnPreview"
+          class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors text-sm">
+          Preview Selected Scenes
         </button>
+        <button onclick="approveAndRender()" id="btnApproveRender"
+          class="bg-green-600 hover:bg-green-500 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors text-sm hidden">
+          Approve & Re-render Video (~$1.50) →
+        </button>
+        <button onclick="batchFixScenes()" id="btnBatchFix"
+          class="border border-purple-600 text-purple-400 hover:text-purple-300 px-5 py-2.5 rounded-lg transition-colors text-sm">
+          Skip Preview — Fix & Render All
+        </button>
+      </div>
+      <p class="text-xs text-yellow-500 mt-3">Tip: Never put text/words in image prompts — FLUX misspells them.</p>
+    </section>
+
+    <!-- Render History -->
+    <section id="stepHistory" class="mb-10">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="bg-gray-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">H</span>
+        <h2 class="title-font text-lg font-semibold text-white">Render History</h2>
+        <button onclick="loadHistory()" class="ml-auto text-xs text-amber-500 hover:text-amber-400">↺ Refresh</button>
+      </div>
+      <div id="historyContainer" class="space-y-2">
+        <p class="text-xs text-gray-600">Loading...</p>
       </div>
     </section>
 
@@ -534,28 +785,21 @@ let pollInterval = null;
 async function generateScenes() {
   const script = document.getElementById('scriptInput').value.trim();
   if (!script) return alert('Paste a script first');
-
   document.getElementById('btnGenScenes').disabled = true;
   document.getElementById('scenesSpinner').classList.remove('hidden');
-
   try {
     const res = await fetch(API_PREFIX + '/api/generate-scenes', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({script})
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Scene generation failed');
-    }
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Scene generation failed'); }
     const data = await res.json();
     currentScenes = data.scenes;
     renderScenes();
     document.getElementById('step2').classList.remove('hidden');
     document.getElementById('step2').scrollIntoView({behavior: 'smooth'});
-  } catch(e) {
-    alert('Error: ' + e.message);
-  } finally {
+  } catch(e) { alert('Error: ' + e.message); }
+  finally {
     document.getElementById('btnGenScenes').disabled = false;
     document.getElementById('scenesSpinner').classList.add('hidden');
   }
@@ -563,43 +807,27 @@ async function generateScenes() {
 
 function renderScenes() {
   const c = document.getElementById('scenesContainer');
-  document.getElementById('sceneCount').textContent = `${currentScenes.length} scenes`;
+  document.getElementById('sceneCount').textContent = currentScenes.length + ' scenes';
   c.innerHTML = '';
   currentScenes.forEach((s, i) => {
-    c.innerHTML += `
-      <div class="scene-card bg-gray-900 border border-gray-700 rounded-xl p-5" data-idx="${i}">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-amber-400 font-semibold text-sm">Scene ${i+1}</span>
-          <button onclick="removeScene(${i})" class="text-red-500 hover:text-red-400 text-xs">✕ Remove</button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Narration</label>
-            <textarea rows="3" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
-              onchange="currentScenes[${i}].narration=this.value">${esc(s.narration)}</textarea>
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Image Prompt</label>
-            <textarea rows="3" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
-              onchange="currentScenes[${i}].imagePrompt=this.value">${esc(s.imagePrompt)}</textarea>
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Motion</label>
-            <input type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
-              value="${esc(s.motion)}" onchange="currentScenes[${i}].motion=this.value" />
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Lighting</label>
-            <input type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
-              value="${esc(s.lighting)}" onchange="currentScenes[${i}].lighting=this.value" />
-          </div>
-        </div>
-      </div>`;
+    c.innerHTML += '<div class="scene-card bg-gray-900 border border-gray-700 rounded-xl p-5" data-idx="'+i+'">'
+      +'<div class="flex items-center justify-between mb-3">'
+      +'<span class="text-amber-400 font-semibold text-sm">Scene '+(i+1)+'</span>'
+      +'<button onclick="removeScene('+i+')" class="text-red-500 hover:text-red-400 text-xs">✕ Remove</button></div>'
+      +'<div class="grid grid-cols-1 md:grid-cols-2 gap-3">'
+      +'<div><label class="text-xs text-gray-500 block mb-1">Narration</label>'
+      +'<textarea rows="3" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500" onchange="currentScenes['+i+'].narration=this.value">'+esc(s.narration)+'</textarea></div>'
+      +'<div><label class="text-xs text-gray-500 block mb-1">Image Prompt</label>'
+      +'<textarea rows="3" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500" onchange="currentScenes['+i+'].imagePrompt=this.value">'+esc(s.imagePrompt)+'</textarea></div>'
+      +'<div><label class="text-xs text-gray-500 block mb-1">Motion</label>'
+      +'<input type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500" value="'+esc(s.motion)+'" onchange="currentScenes['+i+'].motion=this.value" /></div>'
+      +'<div><label class="text-xs text-gray-500 block mb-1">Lighting</label>'
+      +'<input type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500" value="'+esc(s.lighting)+'" onchange="currentScenes['+i+'].lighting=this.value" /></div>'
+      +'</div></div>';
   });
 }
 
 function removeScene(i) { currentScenes.splice(i, 1); renderScenes(); }
-
 function addScene() {
   currentScenes.push({narration:'', imagePrompt:'', motion:'Slow cinematic camera movement', lighting:'Golden divine light from above'});
   renderScenes();
@@ -607,43 +835,47 @@ function addScene() {
 }
 
 async function generateVideo() {
+  syncScenesFromDOM();
+  if (currentScenes.length === 0) return alert('No scenes to generate');
+  showProgressPanel();
+  document.getElementById('btnGenVideo').disabled = true;
+  const sp = document.getElementById('sceneProgress');
+  sp.innerHTML = currentScenes.map((_, i) =>
+    '<div class="flex items-center gap-2" id="sp_'+i+'"><span class="w-2 h-2 rounded-full bg-gray-600" id="spDot_'+i+'"></span><span class="text-xs text-gray-500" id="spText_'+i+'">Scene '+(i+1)+' — waiting</span></div>'
+  ).join('');
+  try {
+    const res = await fetch(API_PREFIX + '/api/generate-video', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({scenes: currentScenes})
+    });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to start pipeline'); }
+    startPolling();
+  } catch(e) { showError(e.message); }
+}
+
+function syncScenesFromDOM() {
   document.querySelectorAll('.scene-card').forEach((card, i) => {
     const tas = card.querySelectorAll('textarea');
     const ins = card.querySelectorAll('input');
-    currentScenes[i].narration = tas[0].value;
-    currentScenes[i].imagePrompt = tas[1].value;
-    currentScenes[i].motion = ins[0].value;
-    currentScenes[i].lighting = ins[1].value;
+    if (currentScenes[i]) {
+      currentScenes[i].narration = tas[0].value;
+      currentScenes[i].imagePrompt = tas[1].value;
+      currentScenes[i].motion = ins[0].value;
+      currentScenes[i].lighting = ins[1].value;
+    }
   });
+}
 
-  if (currentScenes.length === 0) return alert('No scenes to generate');
-
+function showProgressPanel() {
   document.getElementById('step3').classList.remove('hidden');
   document.getElementById('step4').classList.add('hidden');
+  document.getElementById('step5').classList.add('hidden');
   document.getElementById('stepError').classList.add('hidden');
+  document.getElementById('pipelineSpinner').style.display = '';
+  document.getElementById('btnStop').classList.remove('hidden');
+  document.getElementById('progressBar').className = 'progress-fill bg-amber-500 h-3 rounded-full';
+  document.getElementById('progressBar').style.width = '0%';
   document.getElementById('step3').scrollIntoView({behavior: 'smooth'});
-  document.getElementById('btnGenVideo').disabled = true;
-
-  const sp = document.getElementById('sceneProgress');
-  sp.innerHTML = currentScenes.map((_, i) =>
-    `<div class="flex items-center gap-2" id="sp_${i}">
-      <span class="w-2 h-2 rounded-full bg-gray-600" id="spDot_${i}"></span>
-      <span class="text-xs text-gray-500" id="spText_${i}">Scene ${i+1} — waiting</span>
-    </div>`
-  ).join('');
-
-  try {
-    const res = await fetch(API_PREFIX + '/api/generate-video', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({scenes: currentScenes})
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to start pipeline');
-    }
-    startPolling();
-  } catch(e) { showError(e.message); }
 }
 
 function startPolling() {
@@ -653,9 +885,8 @@ function startPolling() {
       const res = await fetch(API_PREFIX + '/api/status');
       const s = await res.json();
       updateProgress(s);
-      if (s.phase === 'done' || s.phase === 'error') {
-        clearInterval(pollInterval);
-        pollInterval = null;
+      if (['done','error','stopped','preview_ready','idle'].includes(s.phase)) {
+        clearInterval(pollInterval); pollInterval = null;
       }
     } catch(e) {}
   }, 2000);
@@ -666,137 +897,249 @@ function updateProgress(s) {
   const msg = document.getElementById('pipelineMessage');
   const bar = document.getElementById('progressBar');
   const spinner = document.getElementById('pipelineSpinner');
-
   msg.textContent = s.message || '';
 
-  if (s.phase === 'generating_media') {
-    phase.textContent = `Generating Media — Scene ${s.current_scene}/${s.total_scenes}`;
+  if (s.phase === 'generating_media' || s.phase === 'previewing') {
+    const label = s.phase === 'previewing' ? 'Previewing' : 'Generating Media';
+    phase.textContent = label + ' — Scene ' + s.current_scene + '/' + s.total_scenes;
     const pct = s.total_scenes > 0 ? Math.round((s.current_scene / s.total_scenes) * 80) : 0;
     bar.style.width = pct + '%';
     for (let i = 0; i < s.total_scenes; i++) {
       const dot = document.getElementById('spDot_' + i);
       const txt = document.getElementById('spText_' + i);
       if (!dot) continue;
-      if (i < s.current_scene) {
+      if (i < s.current_scene - 1) {
         dot.className = 'w-2 h-2 rounded-full bg-green-500';
         txt.className = 'text-xs text-green-400';
-        txt.textContent = `Scene ${i+1} — done`;
+        txt.textContent = 'Scene ' + (i+1) + ' — done';
       } else if (i === s.current_scene - 1) {
         dot.className = 'w-2 h-2 rounded-full bg-amber-500';
         txt.className = 'text-xs text-amber-400';
-        txt.textContent = `Scene ${i+1} — in progress`;
+        txt.textContent = 'Scene ' + (i+1) + ' — in progress';
       }
     }
   } else if (s.phase === 'rendering') {
     phase.textContent = 'Final Render — JSON2Video';
     bar.style.width = '90%';
-    for (let i = 0; i < s.total_scenes; i++) {
-      const dot = document.getElementById('spDot_' + i);
-      const txt = document.getElementById('spText_' + i);
-      if (!dot) continue;
-      dot.className = 'w-2 h-2 rounded-full bg-green-500';
-      txt.className = 'text-xs text-green-400';
-      txt.textContent = `Scene ${i+1} — done`;
-    }
   } else if (s.phase === 'done') {
     spinner.style.display = 'none';
+    document.getElementById('btnStop').classList.add('hidden');
     phase.textContent = 'Complete!';
     bar.style.width = '100%';
-    bar.classList.remove('bg-amber-500');
-    bar.classList.add('bg-green-500');
+    bar.className = 'progress-fill bg-green-500 h-3 rounded-full';
     document.getElementById('step4').classList.remove('hidden');
     document.getElementById('videoLink').href = s.video_url;
     document.getElementById('videoUrl').textContent = s.video_url;
     document.getElementById('btnGenVideo').disabled = false;
+    if (s.scenes && s.scenes.length) currentScenes = s.scenes;
+    showFixPanel();
+    loadHistory();
+  } else if (s.phase === 'preview_ready') {
+    spinner.style.display = 'none';
+    document.getElementById('btnStop').classList.add('hidden');
+    phase.textContent = 'Preview Ready!';
+    bar.style.width = '100%';
+    bar.className = 'progress-fill bg-blue-500 h-3 rounded-full';
+    document.getElementById('btnGenVideo').disabled = false;
+    showFixPanel();
+    showPreviewResults(s.previews || {});
+  } else if (s.phase === 'stopped') {
+    spinner.style.display = 'none';
+    document.getElementById('btnStop').classList.add('hidden');
+    phase.textContent = 'Stopped';
+    bar.className = 'progress-fill bg-yellow-500 h-3 rounded-full';
+    document.getElementById('btnGenVideo').disabled = false;
+    if (s.scenes && s.scenes.length) currentScenes = s.scenes;
     showFixPanel();
   } else if (s.phase === 'error') {
     spinner.style.display = 'none';
+    document.getElementById('btnStop').classList.add('hidden');
     showError(s.error || s.message);
     document.getElementById('btnGenVideo').disabled = false;
   }
 }
 
+async function stopPipeline() {
+  try { await fetch(API_PREFIX + '/api/stop', {method: 'POST'}); } catch(e) {}
+}
+
 async function retryPipeline() {
   document.getElementById('stepError').classList.add('hidden');
-  document.getElementById('step3').classList.remove('hidden');
-  document.getElementById('pipelineSpinner').style.display = '';
-  document.getElementById('progressBar').classList.remove('bg-green-500');
-  document.getElementById('progressBar').classList.add('bg-amber-500');
-  document.getElementById('step4').classList.add('hidden');
-
+  showProgressPanel();
   try {
     const res = await fetch(API_PREFIX + '/api/retry', {method: 'POST', headers: {'Content-Type': 'application/json'}});
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Retry failed');
-    }
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Retry failed'); }
     const data = await res.json();
-    document.getElementById('pipelinePhase').textContent = `Resuming from Scene ${data.resume_from}/${data.total_scenes}`;
+    document.getElementById('pipelinePhase').textContent = 'Resuming from Scene ' + data.resume_from + '/' + data.total_scenes;
     startPolling();
   } catch(e) { showError(e.message); }
 }
 
+// --- Fix Panel ---
 function showFixPanel() {
   document.getElementById('step5').classList.remove('hidden');
-  const sel = document.getElementById('fixSceneIndex');
-  sel.innerHTML = '';
-  for (let i = 0; i < currentScenes.length; i++) {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = `Scene ${i+1}`;
-    sel.appendChild(opt);
-  }
-  sel.onchange = () => loadFixScene(parseInt(sel.value));
-  loadFixScene(0);
-}
-
-function loadFixScene(idx) {
-  const s = currentScenes[idx] || {};
-  document.getElementById('fixNarration').value = s.narration || '';
-  document.getElementById('fixImagePrompt').value = s.imagePrompt || '';
-  document.getElementById('fixMotion').value = s.motion || '';
-  document.getElementById('fixLighting').value = s.lighting || '';
-}
-
-async function fixScene() {
-  const idx = parseInt(document.getElementById('fixSceneIndex').value);
-  const scene = {
-    narration: document.getElementById('fixNarration').value,
-    imagePrompt: document.getElementById('fixImagePrompt').value,
-    motion: document.getElementById('fixMotion').value,
-    lighting: document.getElementById('fixLighting').value,
-  };
-  currentScenes[idx] = scene;
-
-  document.getElementById('btnFixScene').disabled = true;
-  document.getElementById('step3').classList.remove('hidden');
-  document.getElementById('step4').classList.add('hidden');
-  document.getElementById('stepError').classList.add('hidden');
-  document.getElementById('pipelineSpinner').style.display = '';
-  document.getElementById('progressBar').classList.remove('bg-green-500');
-  document.getElementById('progressBar').classList.add('bg-amber-500');
-  document.getElementById('progressBar').style.width = '0%';
-  document.getElementById('pipelinePhase').textContent = `Fixing Scene ${idx+1}...`;
-  document.getElementById('sceneProgress').innerHTML = `
-    <div class="flex items-center gap-2">
-      <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-      <span class="text-xs text-amber-400">Regenerating Scene ${idx+1} (FLUX + Kling)...</span>
-    </div>`;
-  document.getElementById('step3').scrollIntoView({behavior: 'smooth'});
-
-  try {
-    const res = await fetch(API_PREFIX + '/api/fix-scene', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({scene_index: idx, scene})
+  document.getElementById('btnApproveRender').classList.add('hidden');
+  const c = document.getElementById('fixScenesContainer');
+  c.innerHTML = '';
+  currentScenes.forEach((s, i) => {
+    const narr = (s.narration || '').substring(0, 80);
+    c.innerHTML += '<div class="bg-gray-900 border border-gray-700 rounded-xl p-4" id="fixCard_'+i+'">'
+      +'<div class="flex items-center gap-3 mb-2">'
+      +'<input type="checkbox" id="fixCheck_'+i+'" onchange="updateFixCost()" class="accent-purple-500" />'
+      +'<span class="text-amber-400 font-semibold text-sm">Scene '+(i+1)+'</span>'
+      +'<span class="text-xs text-gray-500 truncate ml-2">'+esc(narr)+'...</span>'
+      +'<span id="fixPreviewBadge_'+i+'" class="hidden ml-auto text-xs text-green-400">✓ previewed</span>'
+      +'</div>'
+      +'<div class="hidden" id="fixEditor_'+i+'">'
+      +'<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">'
+      +'<div><label class="text-xs text-gray-500 block mb-1">Narration</label>'
+      +'<textarea rows="3" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500" id="fixNarr_'+i+'">'+esc(s.narration)+'</textarea></div>'
+      +'<div><label class="text-xs text-gray-500 block mb-1">Image Prompt</label>'
+      +'<textarea rows="3" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500" id="fixImg_'+i+'">'+esc(s.imagePrompt)+'</textarea></div>'
+      +'<div><label class="text-xs text-gray-500 block mb-1">Motion</label>'
+      +'<input type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500" id="fixMot_'+i+'" value="'+esc(s.motion)+'" /></div>'
+      +'<div><label class="text-xs text-gray-500 block mb-1">Lighting</label>'
+      +'<input type="text" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-purple-500" id="fixLit_'+i+'" value="'+esc(s.lighting)+'" /></div>'
+      +'</div>'
+      +'<div id="fixPreview_'+i+'" class="mt-3 hidden"><div class="flex gap-4 items-center">'
+      +'<img id="fixPreviewImg_'+i+'" class="w-40 rounded border border-gray-600 cursor-pointer" onclick="window.open(this.src)" />'
+      +'<a id="fixPreviewVid_'+i+'" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs">View Video →</a>'
+      +'</div></div>'
+      +'</div></div>';
+  });
+  // Toggle editors on checkbox
+  document.querySelectorAll('[id^="fixCheck_"]').forEach(cb => {
+    cb.addEventListener('change', function() {
+      const idx = this.id.split('_')[1];
+      document.getElementById('fixEditor_' + idx).classList.toggle('hidden', !this.checked);
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Fix failed');
+  });
+  updateFixCost();
+}
+
+function getSelectedFixes() {
+  const fixes = [];
+  currentScenes.forEach((s, i) => {
+    const cb = document.getElementById('fixCheck_' + i);
+    if (cb && cb.checked) {
+      fixes.push({
+        scene_index: i,
+        scene: {
+          narration: document.getElementById('fixNarr_' + i).value,
+          imagePrompt: document.getElementById('fixImg_' + i).value,
+          motion: document.getElementById('fixMot_' + i).value,
+          lighting: document.getElementById('fixLit_' + i).value,
+        }
+      });
     }
+  });
+  return fixes;
+}
+
+function updateFixCost() {
+  const fixes = getSelectedFixes();
+  const n = fixes.length;
+  const el = document.getElementById('fixCostEstimate');
+  if (n === 0) { el.textContent = ''; return; }
+  const previewCost = (n * 0.69).toFixed(2);
+  el.textContent = n + ' scene' + (n>1?'s':'') + ' selected — Preview: ~$' + previewCost + ' | Render: ~$1.50';
+}
+
+async function previewSelectedScenes() {
+  const fixes = getSelectedFixes();
+  if (fixes.length === 0) return alert('Check at least one scene to preview');
+  showProgressPanel();
+  document.getElementById('pipelinePhase').textContent = 'Previewing ' + fixes.length + ' scenes...';
+  document.getElementById('sceneProgress').innerHTML = fixes.map((f, i) =>
+    '<div class="flex items-center gap-2" id="sp_'+i+'"><span class="w-2 h-2 rounded-full bg-gray-600" id="spDot_'+i+'"></span><span class="text-xs text-gray-500" id="spText_'+i+'">Scene '+(f.scene_index+1)+' — waiting</span></div>'
+  ).join('');
+  try {
+    const res = await fetch(API_PREFIX + '/api/preview-scenes', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({fixes})
+    });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Preview failed'); }
     startPolling();
   } catch(e) { showError(e.message); }
-  finally { document.getElementById('btnFixScene').disabled = false; }
+}
+
+function showPreviewResults(previews) {
+  for (const [idx, preview] of Object.entries(previews)) {
+    const previewDiv = document.getElementById('fixPreview_' + idx);
+    const badge = document.getElementById('fixPreviewBadge_' + idx);
+    const img = document.getElementById('fixPreviewImg_' + idx);
+    const vid = document.getElementById('fixPreviewVid_' + idx);
+    if (previewDiv) {
+      previewDiv.classList.remove('hidden');
+      img.src = preview.image_url;
+      vid.href = preview.video_url;
+      vid.textContent = 'View Kling Video →';
+    }
+    if (badge) badge.classList.remove('hidden');
+  }
+  document.getElementById('btnApproveRender').classList.remove('hidden');
+}
+
+async function approveAndRender() {
+  showProgressPanel();
+  document.getElementById('pipelinePhase').textContent = 'Rendering approved scenes...';
+  document.getElementById('sceneProgress').innerHTML = '';
+  try {
+    const res = await fetch(API_PREFIX + '/api/approve-fixes', {method: 'POST', headers: {'Content-Type': 'application/json'}});
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Render failed'); }
+    startPolling();
+  } catch(e) { showError(e.message); }
+}
+
+async function batchFixScenes() {
+  const fixes = getSelectedFixes();
+  if (fixes.length === 0) return alert('Check at least one scene to fix');
+  if (!confirm('This will regenerate ' + fixes.length + ' scene(s) and render immediately (~$' + (fixes.length * 0.69 + 1.50).toFixed(2) + '). Continue?')) return;
+  showProgressPanel();
+  document.getElementById('pipelinePhase').textContent = 'Batch fixing ' + fixes.length + ' scenes...';
+  document.getElementById('sceneProgress').innerHTML = fixes.map((f, i) =>
+    '<div class="flex items-center gap-2" id="sp_'+i+'"><span class="w-2 h-2 rounded-full bg-gray-600" id="spDot_'+i+'"></span><span class="text-xs text-gray-500" id="spText_'+i+'">Scene '+(f.scene_index+1)+' — waiting</span></div>'
+  ).join('');
+  try {
+    const res = await fetch(API_PREFIX + '/api/fix-scenes', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({fixes})
+    });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Batch fix failed'); }
+    startPolling();
+  } catch(e) { showError(e.message); }
+}
+
+// --- History ---
+async function loadHistory() {
+  const c = document.getElementById('historyContainer');
+  try {
+    const res = await fetch(API_PREFIX + '/api/history');
+    const history = await res.json();
+    if (history.length === 0) { c.innerHTML = '<p class="text-xs text-gray-600">No render history yet.</p>'; return; }
+    c.innerHTML = history.map(h =>
+      '<div class="bg-gray-900 border border-gray-700 rounded-lg p-3 flex items-center gap-3">'
+      +'<span class="text-xs text-gray-400">' + new Date(h.created_at).toLocaleString() + '</span>'
+      +'<span class="text-xs text-amber-400">' + h.scene_count + ' scenes</span>'
+      +'<a href="' + (h.video_url||'#') + '" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 ml-auto">Download</a>'
+      +'<button onclick="loadHistoryIntoFix(\''+h.id+'\')" class="text-xs text-purple-400 hover:text-purple-300">Load into Fix</button>'
+      +'</div>'
+    ).join('');
+  } catch(e) { c.innerHTML = '<p class="text-xs text-red-400">Failed to load history</p>'; }
+}
+
+async function loadHistoryIntoFix(historyId) {
+  try {
+    const res = await fetch(API_PREFIX + '/api/history/' + historyId);
+    const data = await res.json();
+    if (data.scenes && data.scenes.length) {
+      currentScenes = data.scenes;
+      renderScenes();
+      document.getElementById('step2').classList.remove('hidden');
+      showFixPanel();
+      document.getElementById('step5').scrollIntoView({behavior: 'smooth'});
+    }
+  } catch(e) { alert('Failed to load history: ' + e.message); }
 }
 
 function showError(msg) {
@@ -805,10 +1148,7 @@ function showError(msg) {
 }
 
 function resetUI() {
-  document.getElementById('step2').classList.add('hidden');
-  document.getElementById('step3').classList.add('hidden');
-  document.getElementById('step4').classList.add('hidden');
-  document.getElementById('stepError').classList.add('hidden');
+  ['step2','step3','step4','step5','stepError'].forEach(id => document.getElementById(id).classList.add('hidden'));
   document.getElementById('btnGenVideo').disabled = false;
   currentScenes = [];
   window.scrollTo({top: 0, behavior: 'smooth'});
@@ -817,6 +1157,9 @@ function resetUI() {
 function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// Load history on page load
+document.addEventListener('DOMContentLoaded', loadHistory);
 </script>
 </body>
 </html>"""

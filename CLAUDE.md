@@ -232,9 +232,25 @@ Browser (http://localhost:8000/custom) or CLI
   → fal.ai FLUX Pro     → generate image per scene
   → fal.ai Kling v3     → animate each image to 15s video clip
   → JSON2Video          → templateless inline payload → ElevenLabs narration + subtitles → final MP4
+  → Fix Scenes          → preview (FLUX+Kling only) or batch fix + ONE re-render
 ```
 
 **No n8n required.** No template ID. Payload built dynamically in code.
+
+### API Routes
+```
+POST /custom/api/generate-scenes   — Claude AI generates scenes from script
+POST /custom/api/generate-video    — Start full pipeline (FLUX → Kling → JSON2Video)
+POST /custom/api/retry             — Resume from failed scene
+POST /custom/api/fix-scene         — Fix single scene + re-render
+POST /custom/api/fix-scenes        — Batch fix multiple scenes + ONE re-render
+POST /custom/api/preview-scenes    — Preview fixes (FLUX + Kling only, no render)
+POST /custom/api/approve-fixes     — Render after preview approval
+POST /custom/api/stop              — Stop pipeline mid-render
+GET  /custom/api/status            — Poll pipeline progress
+GET  /custom/api/history           — Browse past renders
+GET  /custom/api/history/{id}      — Full scene data for a past render
+```
 
 ### Web App (merged into unified server)
 The custom script UI is available at **http://localhost:8000/custom** — part of the unified server.
@@ -261,18 +277,20 @@ python workflows/custom-script/recover.py  # recovers completed videos from fal.
 ### Key Files
 | File | Purpose |
 |---|---|
-| [workflows/custom-script/router.py](workflows/custom-script/router.py) | FastAPI APIRouter — mounted in main app.py at `/custom`, contains all custom script API routes + HTML UI |
+| [workflows/custom-script/router.py](workflows/custom-script/router.py) | FastAPI APIRouter — mounted in main app.py at `/custom`, all API routes + HTML UI (preview-first batch fix, stop, history) |
 | [workflows/custom-script/server.py](workflows/custom-script/server.py) | Standalone FastAPI web UI (legacy, port 8500) — use the unified server instead |
 | [workflows/custom-script/generate.py](workflows/custom-script/generate.py) | CLI pipeline — script → Claude scenes → FLUX → Kling → JSON2Video |
 | [workflows/custom-script/recover.py](workflows/custom-script/recover.py) | Recovery — fetches completed Kling videos from fal.ai history API, regenerates only missing scenes |
 | [workflows/custom-script/example-trailer.txt](workflows/custom-script/example-trailer.txt) | Example input — channel trailer script |
 | [workflows/custom-script/README.md](workflows/custom-script/README.md) | Complete usage guide |
 
-### Important Notes
-- **Never put text in FLUX image prompts** — AI misspells words. Use subtitles for all on-screen text.
-- **Subtitles use transcription mode** — exact narration text provided, not auto-detected from audio. Ensures correct biblical name spelling.
-- **Single-scene re-generation** — fix one scene without re-doing the whole video (~$1.50 JSON2Video render only).
-- **Retry button** in web UI picks up from failed scene without re-generating completed scenes.
+### Features (matching Biblical mode)
+- **Preview-first batch fix** — check multiple scenes, edit prompts inline, preview FLUX+Kling (~$0.69/scene) before committing to render (~$1.50)
+- **Batch fix (skip preview)** — regenerate + render in one shot for users who don't need preview
+- **Stop rendering** — cancel mid-render to save credits; completed scenes preserved for retry
+- **Render history** — persisted to `custom_render_history.json`, browse past renders, reload into fix panel
+- **Movie-level subtitles** — yellow word-by-word captions via JSON2Video `model: "default"`
+- **Retry button** — picks up from failed scene without re-generating completed scenes
 
 ---
 

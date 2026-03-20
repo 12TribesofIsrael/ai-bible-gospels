@@ -294,10 +294,11 @@ def build_json2video_payload(scenes_data):
             "elements": [
                 {"id": f"scene{i}_bg", "type": "video", "src": s["video_url"], "resize": "cover", "loop": -1, "duration": -2},
                 {"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": VOICE_ID, "model": "elevenlabs", "speed": VOICE_SPEED},
-                {"id": f"scene{i}_subs", "type": "subtitles", "language": "en", "model": "transcription", "settings": subtitle_settings, "transcript": s["narration"]},
             ],
         })
-    return {"resolution": "full-hd", "quality": "high", "scenes": scenes}
+    # Movie-level subtitle element — JSON2Video requires this at root, not per-scene
+    movie_subtitles = {"id": "movie_subtitles", "type": "subtitles", "language": "en", "model": "default", "settings": subtitle_settings}
+    return {"resolution": "full-hd", "quality": "high", "elements": [movie_subtitles], "scenes": scenes}
 
 
 def submit_and_poll_json2video(payload):
