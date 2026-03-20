@@ -289,13 +289,12 @@ def build_json2video_payload(scenes_data):
     }
     scenes = []
     for i, s in enumerate(scenes_data, 1):
-        scenes.append({
-            "id": f"scene{i}", "comment": f"Scene {i}", "duration": "auto",
-            "elements": [
-                {"id": f"scene{i}_bg", "type": "video", "src": s["video_url"], "resize": "cover", "loop": -1, "duration": -2},
-                {"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": VOICE_ID, "model": "elevenlabs", "speed": VOICE_SPEED},
-            ],
-        })
+        elements = [
+            {"id": f"scene{i}_bg", "type": "video", "src": s["video_url"], "resize": "cover", "loop": -1, "duration": -2},
+        ]
+        if s.get("narration", "").strip():
+            elements.append({"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": VOICE_ID, "model": "elevenlabs", "speed": VOICE_SPEED})
+        scenes.append({"id": f"scene{i}", "comment": f"Scene {i}", "duration": "auto", "elements": elements})
     # Movie-level subtitle element — JSON2Video requires this at root, not per-scene
     movie_subtitles = {"id": "movie_subtitles", "type": "subtitles", "language": "en", "model": "default", "settings": subtitle_settings}
     return {"resolution": "full-hd", "quality": "high", "elements": [movie_subtitles], "scenes": scenes}
