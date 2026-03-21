@@ -307,8 +307,40 @@ See [.env.example](.env.example) for all keys. The `.env` file lives at the work
 | `ELEVENLABS_API_KEY` | Reference only (configured inside n8n) |
 | `JSON2VIDEO_API_KEY` | Biblical server `/api/status` + Custom Script pipeline — polls render progress + provides download URL |
 | `ANTHROPIC_API_KEY` | Custom Script pipeline — Claude AI scene generation |
+| `APP_USERNAME` | Modal deployment — Basic Auth username (optional, local dev skips auth) |
+| `APP_PASSWORD` | Modal deployment — Basic Auth password (optional, local dev skips auth) |
 
 The biblical server uses `find_dotenv()` to locate `.env` by walking up the directory tree from `server/app.py`.
+
+---
+
+## Modal Deployment (v11)
+
+The unified web app is deployed to **Modal.com** with Basic Auth protection.
+
+**Live URL:** `https://tribesofisrael--ai-bible-gospels-web.modal.run`
+- Scripture Mode: `/`
+- Custom Script Mode: `/custom/`
+
+### Deploy
+```bash
+modal deploy modal_app.py
+```
+
+### Setup
+1. Create a Modal secret named `ai-bible-gospels` with: `FAL_KEY`, `JSON2VIDEO_API_KEY`, `ANTHROPIC_API_KEY`, `APP_USERNAME`, `APP_PASSWORD`
+2. Run `modal deploy modal_app.py`
+
+### Key Files
+| File | Purpose |
+|---|---|
+| [modal_app.py](modal_app.py) | Modal deployment entry point — mounts project dirs, serves FastAPI via `@modal.asgi_app()` |
+
+### Notes
+- Auth middleware only activates when `APP_USERNAME` + `APP_PASSWORD` are set (skipped in local dev)
+- Step 4 (post-production) and Step 5 (YouTube upload) are local-only — they require FFmpeg and filesystem access
+- Container stays warm for 5 minutes (`scaledown_window=300`)
+- Redeploy updates code but warm containers keep old code — run `modal app stop ai-bible-gospels` before `modal deploy` to force refresh
 
 ---
 

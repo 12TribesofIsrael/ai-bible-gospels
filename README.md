@@ -6,15 +6,20 @@ Contains three workflows, with the two production workflows merged into a **unif
 
 | Workflow | Status | What it does |
 |---|---|---|
-| **Biblical Cinematic** (Scripture Mode) | Production (v10) | KJV scripture → cinematic video with narration, batch scene fixing, stop rendering, render history |
-| **Custom Script** (Custom Script Mode) | Production | Any script/concept → Claude AI scenes → dynamic-length cinematic video, preview-first batch fix, stop rendering, render history |
+| **Biblical Cinematic** (Scripture Mode) | Production (v11) | KJV scripture → cinematic video with narration, batch scene fixing, stop rendering, render history |
+| **Custom Script** (Custom Script Mode) | Production (v11) | Any script/concept → Claude AI scenes → dynamic-length cinematic video, preview-first batch fix, stop rendering, render history |
 | **General AI Movie** | In Development | Script/prompt → images → animated video clips → narrated movie |
 
 ### Quick Start
 ```bash
+# Local
 python workflows/biblical-cinematic/server/app.py
 # http://localhost:8000     → Scripture Mode
 # http://localhost:8000/custom → Custom Script Mode
+
+# Deploy to Modal (public with auth)
+modal deploy modal_app.py
+# https://tribesofisrael--ai-bible-gospels-web.modal.run
 ```
 
 ---

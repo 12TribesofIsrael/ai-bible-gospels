@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv, find_dotenv
 from typing import Optional
+import base64
+import secrets
 
 # find_dotenv() walks up the directory tree from this file to locate .env
 load_dotenv(find_dotenv(), override=True)
@@ -48,21 +50,52 @@ from biblical_text_processor_v2 import (
 
 app = FastAPI(title="Biblical Cinematic Generator")
 
+# ── Basic Auth middleware (only when deployed) ────────────────────────────────
+_AUTH_USER = os.getenv("APP_USERNAME")
+_AUTH_PASS = os.getenv("APP_PASSWORD")
+
+if _AUTH_USER and _AUTH_PASS:
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import Response as StarletteResponse
+
+    class BasicAuthMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            auth = request.headers.get("Authorization")
+            if auth and auth.startswith("Basic "):
+                try:
+                    decoded = base64.b64decode(auth[6:]).decode()
+                    user, pwd = decoded.split(":", 1)
+                    if secrets.compare_digest(user, _AUTH_USER) and secrets.compare_digest(pwd, _AUTH_PASS):
+                        return await call_next(request)
+                except Exception:
+                    pass
+            return StarletteResponse(
+                "Unauthorized", status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="AI Bible Gospels"'},
+            )
+
+    app.add_middleware(BasicAuthMiddleware)
+    print("Basic Auth enabled")
+
 # Mount custom script router
 try:
     from router import custom_router
     app.include_router(custom_router, prefix="/custom")
     print("Custom Script router mounted at /custom")
-except ImportError as e:
+except Exception as e:
+    import traceback
     print(f"WARNING: Custom Script router not loaded: {e}")
+    traceback.print_exc()
 
 # Mount biblical v9 pipeline router (no n8n)
 try:
     from biblical_pipeline import biblical_router
     app.include_router(biblical_router, prefix="/v9")
     print("Biblical v9 pipeline router mounted at /v9")
-except ImportError as e:
+except Exception as e:
+    import traceback
     print(f"WARNING: Biblical v9 router not loaded: {e}")
+    traceback.print_exc()
 
 # ── Generation state (single-user, in-memory) ─────────────────────────────────
 # Resets each time a new video is triggered.
