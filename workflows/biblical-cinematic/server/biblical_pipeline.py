@@ -50,6 +50,10 @@ VOICE_SPEED = 0.9
 # Based on render history, 865 words (325s) succeeded at 662s render time; 1467 words always times out
 MAX_WORDS_PER_RENDER = 900
 
+# Target words per scene to match Kling clip duration (avoids looping)
+# At ~135 effective WPM: 10s clip = ~22 words, 15s clip = ~34 words
+WORDS_PER_SCENE = {"v1.6": 22, "v2.1": 22, "v3.0": 34}
+
 HISTORY_FILE = Path(__file__).parent / "render_history.json"
 
 # ---------------------------------------------------------------------------
@@ -146,7 +150,7 @@ Return ONLY valid JSON in this exact format:
 class BiblicalGenerateInput(BaseModel):
     text: str
     model: str = "v1.6"
-    scene_count: int = 20
+    scene_count: int = 20  # legacy — ignored, scene count now auto-calculated from Kling clip duration
     book: str = ""
     chapter: str = ""
 
@@ -170,22 +174,18 @@ class BiblicalFixScenesInput(BaseModel):
 # ---------------------------------------------------------------------------
 # Text splitting
 # ---------------------------------------------------------------------------
-def split_scripture_into_scenes(text, target_scenes=20):
-    """Split cleaned scripture into narration chunks at sentence boundaries."""
+def split_scripture_into_scenes(text, target_words_per_scene=30):
+    """Split cleaned scripture into narration chunks at sentence boundaries.
+
+    target_words_per_scene: aim for this many words per chunk to match Kling clip duration.
+    """
     text = text.strip()
     words = text.split()
     total_words = len(words)
 
-    # Auto-reduce for short texts
-    if total_words < target_scenes * 15:
-        target_scenes = max(5, total_words // 20)
-
     sentences = re.split(r'(?<=[.!?;:])\s+', text)
-    if len(sentences) < target_scenes:
-        # If fewer sentences than target, each sentence is a scene
-        return [s.strip() for s in sentences if s.strip()]
+    sentences = [s.strip() for s in sentences if s.strip()]
 
-    target_words_per_scene = total_words // target_scenes
     chunks = []
     current = []
     current_wc = 0
@@ -195,13 +195,17 @@ def split_scripture_into_scenes(text, target_scenes=20):
         current.append(sentence)
         current_wc += sw
 
-        if current_wc >= target_words_per_scene and len(chunks) < target_scenes - 1:
+        if current_wc >= target_words_per_scene:
             chunks.append(" ".join(current))
             current = []
             current_wc = 0
 
     if current:
-        chunks.append(" ".join(current))
+        # Merge remainder into last chunk if it's very short (< 10 words)
+        if chunks and current_wc < 10:
+            chunks[-1] += " " + " ".join(current)
+        else:
+            chunks.append(" ".join(current))
 
     return chunks
 
@@ -516,8 +520,9 @@ async def api_generate(body: BiblicalGenerateInput):
                                   scenes=None, error=None, video_url=None, video_urls=[], processed=[],
                                   book=body.book, chapter=body.chapter, model=body.model)
 
-        # Step 1: Split scripture into narration chunks
-        narration_chunks = split_scripture_into_scenes(body.text, body.scene_count)
+        # Step 1: Split scripture into narration chunks (sized to match Kling clip duration)
+        words_target = WORDS_PER_SCENE.get(body.model, 30)
+        narration_chunks = split_scripture_into_scenes(body.text, words_target)
 
         # Step 2: Claude generates image prompts + intro/outro
         scenes = generate_image_prompts(narration_chunks, body.book, body.chapter)
