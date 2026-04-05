@@ -990,6 +990,7 @@ LANDING_PAGE = """<!DOCTYPE html>
               class="block w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-xl transition-colors text-center">
               ⬇ Download Video
             </a>
+            <div id="video-parts-panel" class="hidden mt-3 space-y-2"></div>
           </div>
         </div>
 
@@ -1358,6 +1359,19 @@ LANDING_PAGE = """<!DOCTYPE html>
         if (data.video_url) {
           document.getElementById('video-download-link').href = data.video_url;
           document.getElementById('video-ready-panel').classList.remove('hidden');
+        }
+        if (data.video_urls && data.video_urls.length > 1) {
+          const partsPanel = document.getElementById('video-parts-panel');
+          partsPanel.innerHTML = '<p class="text-yellow-400 text-sm font-semibold">Long chapter — auto-split into ' + data.video_urls.length + ' parts:</p>';
+          data.video_urls.forEach((url, i) => {
+            const a = document.createElement('a');
+            a.href = url; a.target = '_blank';
+            a.className = 'block w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-xl transition-colors text-center text-sm';
+            a.textContent = '⬇ Download Part ' + (i + 1);
+            partsPanel.appendChild(a);
+          });
+          partsPanel.classList.remove('hidden');
+          document.getElementById('video-download-link').textContent = '⬇ Download Part 1';
         }
         // Sync v9Scenes from backend so fix panel always shows latest scene data
         if (data.scenes && data.scenes.length) v9Scenes = data.scenes;

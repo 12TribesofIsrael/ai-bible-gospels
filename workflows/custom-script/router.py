@@ -32,7 +32,7 @@ JSON2VIDEO_URL = "https://api.json2video.com/v2/movies"
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
-VOICE_SPEED = 0.8
+VOICE_SPEED = 0.9
 
 HISTORY_FILE = Path(__file__).parent / "custom_render_history.json"
 

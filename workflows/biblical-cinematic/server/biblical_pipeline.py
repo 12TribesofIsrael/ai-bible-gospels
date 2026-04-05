@@ -44,7 +44,11 @@ KLING_MODELS = {
 }
 
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
-VOICE_SPEED = 0.8
+VOICE_SPEED = 0.9
+
+# Auto-split threshold: if total narration exceeds this many words, split into multiple renders
+# Based on render history, 865 words (325s) succeeded at 662s render time; 1467 words always times out
+MAX_WORDS_PER_RENDER = 900
 
 HISTORY_FILE = Path(__file__).parent / "render_history.json"
 
@@ -58,6 +62,7 @@ pipeline_state = {
     "total_scenes": 0,
     "message": "",
     "video_url": None,
+    "video_urls": [],
     "error": None,
     "processed": [],
     "book": "",
@@ -314,8 +319,8 @@ def submit_and_poll_json2video(payload):
             pipeline_state["message"] = f"JSON2Video: {status}"
         if status == "done":
             return movie["url"]
-        elif status == "error":
-            raise RuntimeError(f"Render failed: {movie.get('message')}")
+        elif status in ("error", "timeout"):
+            raise RuntimeError(f"Render {status}: {movie.get('message')}")
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +340,7 @@ def save_to_history(status="done"):
             "scene_count": len(pipeline_state.get("scenes") or []),
             "scenes": pipeline_state.get("scenes") or [],
             "video_url": pipeline_state.get("video_url", ""),
+            "video_urls": pipeline_state.get("video_urls", []),
         }
         history.append(entry)
         HISTORY_FILE.write_text(json.dumps(history, indent=2))
@@ -376,13 +382,31 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
             with lock:
                 pipeline_state["processed"] = list(processed)
                 pipeline_state["message"] = f"Scene {i}/{total} complete"
-        with lock:
-            pipeline_state["phase"] = "rendering"
-            pipeline_state["message"] = "Submitting to JSON2Video for final render..."
-        payload = build_json2video_payload(processed)
-        mp4_url = submit_and_poll_json2video(payload)
-        with lock:
-            pipeline_state.update(phase="done", video_url=mp4_url, message="Video complete!")
+        # Check if we need to split into multiple renders
+        total_words = sum(len(p["narration"].split()) for p in processed if p.get("narration"))
+        if total_words > MAX_WORDS_PER_RENDER:
+            # Split into 2 parts at the midpoint
+            mid = len(processed) // 2
+            parts = [processed[:mid], processed[mid:]]
+            part_urls = []
+            for part_num, part in enumerate(parts, 1):
+                with lock:
+                    pipeline_state["phase"] = "rendering"
+                    pipeline_state["message"] = f"Rendering Part {part_num} of {len(parts)} ({len(part)} scenes)..."
+                payload = build_json2video_payload(part)
+                mp4_url = submit_and_poll_json2video(payload)
+                part_urls.append(mp4_url)
+            with lock:
+                pipeline_state.update(phase="done", video_url=part_urls[0], video_urls=part_urls,
+                                      message=f"Video complete! Split into {len(part_urls)} parts.")
+        else:
+            with lock:
+                pipeline_state["phase"] = "rendering"
+                pipeline_state["message"] = "Submitting to JSON2Video for final render..."
+            payload = build_json2video_payload(processed)
+            mp4_url = submit_and_poll_json2video(payload)
+            with lock:
+                pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Video complete!")
         save_to_history("done")
     except Exception as e:
         with lock:
@@ -411,7 +435,7 @@ def run_fix_scene(scene_index, scene, processed, model="v1.6"):
         payload = build_json2video_payload(processed)
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
-            pipeline_state.update(phase="done", video_url=mp4_url, message="Fixed video complete!")
+            pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Fixed video complete!")
         save_to_history("done")
     except Exception as e:
         with lock:
@@ -459,7 +483,7 @@ def run_fix_scenes(fixes, processed, model="v1.6"):
         payload = build_json2video_payload(processed)
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
-            pipeline_state.update(phase="done", video_url=mp4_url, message="Batch fix complete!")
+            pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Batch fix complete!")
         save_to_history("done")
     except Exception as e:
         with lock:
@@ -489,7 +513,7 @@ async def api_generate(body: BiblicalGenerateInput):
     try:
         with lock:
             pipeline_state.update(phase="generating_scenes", message="Splitting scripture and generating scene visuals with Claude AI...",
-                                  scenes=None, error=None, video_url=None, processed=[],
+                                  scenes=None, error=None, video_url=None, video_urls=[], processed=[],
                                   book=body.book, chapter=body.chapter, model=body.model)
 
         # Step 1: Split scripture into narration chunks
