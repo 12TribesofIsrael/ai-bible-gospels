@@ -27,7 +27,14 @@ JSON2VIDEO_API_KEY = os.getenv("JSON2VIDEO_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 FLUX_URL = "https://fal.run/fal-ai/flux-pro"
-KLING_URL = "https://fal.run/fal-ai/kling-video/v3/standard/image-to-video"
+KLING_MODELS = {
+    "v1.6": {"url": "https://fal.run/fal-ai/kling-video/v1.6/standard/image-to-video", "duration": "10"},
+    "v2.1": {"url": "https://fal.run/fal-ai/kling-video/v2.1/standard/image-to-video", "duration": "10"},
+    "v3.0": {"url": "https://fal.run/fal-ai/kling-video/v3/standard/image-to-video", "duration": "15"},
+    "v3.0-pro": {"url": "https://fal.run/fal-ai/kling-video/v3/pro/image-to-video", "duration": "15"},
+    "o3": {"url": "https://fal.run/fal-ai/kling-video/o3/standard/image-to-video", "duration": "15"},
+    "o3-pro": {"url": "https://fal.run/fal-ai/kling-video/o3/pro/image-to-video", "duration": "15"},
+}
 JSON2VIDEO_URL = "https://api.json2video.com/v2/movies"
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 
@@ -49,6 +56,7 @@ pipeline_state = {
     "error": None,
     "processed": [],
     "previews": {},
+    "model": "v3.0",
 }
 
 lock = threading.Lock()
@@ -109,16 +117,20 @@ class ScriptInput(BaseModel):
 
 class ScenesInput(BaseModel):
     scenes: list
+    model: str = "v3.0"
 
 class FixSceneInput(BaseModel):
     scene_index: int
     scene: dict
+    model: str = "v3.0"
 
 class BatchFixInput(BaseModel):
     fixes: list  # [{scene_index: int, scene: dict}, ...]
+    model: str = "v3.0"
 
 class PreviewScenesInput(BaseModel):
     fixes: list  # [{scene_index: int, scene: dict}, ...]
+    model: str = "v3.0"
 
 
 # ---------------------------------------------------------------------------
@@ -156,10 +168,11 @@ def generate_image(scene):
     return resp.json()["images"][0]["url"]
 
 
-def generate_video(image_url, scene):
-    resp = requests.post(KLING_URL, headers=fal_headers(), json={
+def generate_video(image_url, scene, model="v3.0"):
+    kling = KLING_MODELS.get(model, KLING_MODELS["v3.0"])
+    resp = requests.post(kling["url"], headers=fal_headers(), json={
         "image_url": image_url, "prompt": scene.get("motion", "Slow cinematic camera movement"),
-        "duration": "15", "cfg_scale": 0.5,
+        "duration": kling["duration"], "cfg_scale": 0.5,
     }, timeout=600)
     resp.raise_for_status()
     data = resp.json()
@@ -237,7 +250,7 @@ def save_to_history(scenes, video_url, scene_count):
 # ---------------------------------------------------------------------------
 # Background runners
 # ---------------------------------------------------------------------------
-def run_pipeline(scenes, resume_from=0, existing_processed=None):
+def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None):
     global pipeline_state
     try:
         stop_requested.clear()
@@ -262,8 +275,8 @@ def run_pipeline(scenes, resume_from=0, existing_processed=None):
                     pipeline_state.update(phase="stopped", message=f"Stopped after scene {i-1}/{total}. Completed scenes preserved.")
                 return
             with lock:
-                pipeline_state["message"] = f"Scene {i}/{total} — Generating Kling video..."
-            video_url = generate_video(image_url, scene)
+                pipeline_state["message"] = f"Scene {i}/{total} — Generating Kling {model} video..."
+            video_url = generate_video(image_url, scene, model)
             processed.append({"narration": scene["narration"], "video_url": video_url})
             with lock:
                 pipeline_state["processed"] = list(processed)
@@ -286,7 +299,7 @@ def run_pipeline(scenes, resume_from=0, existing_processed=None):
             traceback.print_exc()
 
 
-def run_fix_scene(scene_index, scene, processed):
+def run_fix_scene(scene_index, scene, processed, model="v3.0"):
     global pipeline_state
     try:
         stop_requested.clear()
@@ -299,8 +312,8 @@ def run_fix_scene(scene_index, scene, processed):
                 pipeline_state["scenes"][scene_index].update(scene)
         image_url = generate_image(scene)
         with lock:
-            pipeline_state["message"] = f"Fixing Scene {idx}/{total} — Generating Kling video..."
-        video_url = generate_video(image_url, scene)
+            pipeline_state["message"] = f"Fixing Scene {idx}/{total} — Generating Kling {model} video..."
+        video_url = generate_video(image_url, scene, model)
         processed[scene_index] = {"narration": scene["narration"], "video_url": video_url}
         with lock:
             pipeline_state.update(phase="rendering", processed=list(processed), message="Re-submitting all scenes to JSON2Video...")
@@ -315,7 +328,7 @@ def run_fix_scene(scene_index, scene, processed):
         traceback.print_exc()
 
 
-def run_fix_scenes(fixes, processed):
+def run_fix_scenes(fixes, processed, model="v3.0"):
     """Batch fix: regenerate FLUX + Kling for multiple scenes, then ONE JSON2Video render."""
     global pipeline_state
     try:
@@ -343,8 +356,8 @@ def run_fix_scenes(fixes, processed):
                     pipeline_state.update(phase="stopped", message=f"Stopped after fixing {fi}/{total_fixes} scenes.")
                 return
             with lock:
-                pipeline_state["message"] = f"Fix {fi+1}/{total_fixes} — Scene {idx+1} — Kling video..."
-            video_url = generate_video(image_url, scene)
+                pipeline_state["message"] = f"Fix {fi+1}/{total_fixes} — Scene {idx+1} — Kling {model} video..."
+            video_url = generate_video(image_url, scene, model)
             processed[idx] = {"narration": scene["narration"], "video_url": video_url}
             with lock:
                 pipeline_state["processed"] = list(processed)
@@ -365,7 +378,7 @@ def run_fix_scenes(fixes, processed):
             traceback.print_exc()
 
 
-def run_preview_scenes(fixes, processed):
+def run_preview_scenes(fixes, processed, model="v3.0"):
     """Preview: regenerate FLUX + Kling for selected scenes, NO JSON2Video render."""
     global pipeline_state
     try:
@@ -392,8 +405,8 @@ def run_preview_scenes(fixes, processed):
                     pipeline_state.update(phase="stopped", message=f"Stopped after previewing {fi}/{total_fixes} scenes.")
                 return
             with lock:
-                pipeline_state["message"] = f"Preview {fi+1}/{total_fixes} — Scene {idx+1} — Kling video..."
-            video_url = generate_video(image_url, scene)
+                pipeline_state["message"] = f"Preview {fi+1}/{total_fixes} — Scene {idx+1} — Kling {model} video..."
+            video_url = generate_video(image_url, scene, model)
             with lock:
                 pipeline_state["previews"][str(idx)] = {"image_url": image_url, "video_url": video_url}
                 pipeline_state["processed"] = list(processed)
@@ -467,9 +480,10 @@ async def api_generate_video(body: ScenesInput):
         raise HTTPException(409, "Pipeline already running")
     with lock:
         pipeline_state["scenes"] = body.scenes
-    thread = threading.Thread(target=run_pipeline, args=(body.scenes,), daemon=True)
+        pipeline_state["model"] = body.model
+    thread = threading.Thread(target=run_pipeline, args=(body.scenes, body.model), daemon=True)
     thread.start()
-    return {"status": "started", "total_scenes": len(body.scenes)}
+    return {"status": "started", "total_scenes": len(body.scenes), "model": body.model}
 
 
 @custom_router.post("/api/retry")
@@ -485,7 +499,8 @@ async def api_retry():
         resume_from = len(processed)
     if not scenes:
         raise HTTPException(400, "No scenes to retry — generate scenes first")
-    thread = threading.Thread(target=run_pipeline, args=(scenes, resume_from, processed), daemon=True)
+    model = pipeline_state.get("model", "v3.0")
+    thread = threading.Thread(target=run_pipeline, args=(scenes, model, resume_from, processed), daemon=True)
     thread.start()
     return {"status": "resuming", "resume_from": resume_from + 1, "total_scenes": len(scenes)}
 
@@ -503,7 +518,7 @@ async def api_fix_scene(body: FixSceneInput):
         raise HTTPException(400, "No completed video to fix — generate a video first")
     if body.scene_index < 0 or body.scene_index >= len(processed):
         raise HTTPException(400, f"Scene index {body.scene_index} out of range")
-    thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed)), daemon=True)
+    thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "fixing", "scene": body.scene_index + 1, "total_scenes": len(processed)}
 
@@ -519,7 +534,7 @@ async def api_fix_scenes(body: BatchFixInput):
         processed = pipeline_state.get("processed", [])
     if not processed:
         raise HTTPException(400, "No completed video to fix")
-    thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed)), daemon=True)
+    thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "fixing", "fix_count": len(body.fixes)}
 
@@ -535,7 +550,7 @@ async def api_preview_scenes(body: PreviewScenesInput):
         processed = pipeline_state.get("processed", [])
     if not processed:
         raise HTTPException(400, "No completed video to preview fixes for")
-    thread = threading.Thread(target=run_preview_scenes, args=(body.fixes, list(processed)), daemon=True)
+    thread = threading.Thread(target=run_preview_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "previewing", "fix_count": len(body.fixes)}
 
@@ -673,6 +688,33 @@ Example: A channel trailer about the 12 Tribes of Israel, their scattering, and 
       </div>
       <p class="text-xs text-gray-400 mb-4">Edit any scene below before generating video. Add or remove scenes as needed.</p>
       <div id="scenesContainer" class="space-y-4"></div>
+      <!-- Model selector -->
+      <div class="mt-4 mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
+        <label class="block text-sm font-medium text-gray-300 mb-2">Kling AI Model</label>
+        <div class="grid grid-cols-3 gap-3">
+          <label class="relative cursor-pointer">
+            <input type="radio" name="custom-kling-model" value="v3.0" class="peer sr-only" checked>
+            <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+              <div class="text-xs font-semibold text-white">v3.0 Standard</div>
+              <div class="text-xs text-amber-400 mt-1">$0.084/sec</div>
+            </div>
+          </label>
+          <label class="relative cursor-pointer">
+            <input type="radio" name="custom-kling-model" value="v3.0-pro" class="peer sr-only">
+            <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+              <div class="text-xs font-semibold text-white">v3.0 Pro</div>
+              <div class="text-xs text-amber-400 mt-1">$0.112/sec</div>
+            </div>
+          </label>
+          <label class="relative cursor-pointer">
+            <input type="radio" name="custom-kling-model" value="o3" class="peer sr-only">
+            <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-purple-500 peer-checked:bg-purple-500/10 transition-all">
+              <div class="text-xs font-semibold text-white">O3 Standard</div>
+              <div class="text-xs text-purple-400 mt-1">$0.168/sec</div>
+            </div>
+          </label>
+        </div>
+      </div>
       <div class="flex items-center gap-4 mt-6">
         <button onclick="addScene()" class="border border-gray-600 hover:border-amber-500 text-gray-300 hover:text-amber-400 px-4 py-2 rounded-lg transition-colors text-sm">
           + Add Scene
@@ -846,7 +888,7 @@ async function generateVideo() {
   try {
     const res = await fetch(API_PREFIX + '/api/generate-video', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({scenes: currentScenes})
+      body: JSON.stringify({scenes: currentScenes, model: document.querySelector('input[name="custom-kling-model"]:checked')?.value || 'v3.0'})
     });
     if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to start pipeline'); }
     startPolling();

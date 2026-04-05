@@ -41,6 +41,9 @@ KLING_MODELS = {
     "v1.6": {"url": "https://fal.run/fal-ai/kling-video/v1.6/standard/image-to-video", "duration": "10"},
     "v2.1": {"url": "https://fal.run/fal-ai/kling-video/v2.1/standard/image-to-video", "duration": "10"},
     "v3.0": {"url": "https://fal.run/fal-ai/kling-video/v3/standard/image-to-video", "duration": "15"},
+    "v3.0-pro": {"url": "https://fal.run/fal-ai/kling-video/v3/pro/image-to-video", "duration": "15"},
+    "o3": {"url": "https://fal.run/fal-ai/kling-video/o3/standard/image-to-video", "duration": "15"},
+    "o3-pro": {"url": "https://fal.run/fal-ai/kling-video/o3/pro/image-to-video", "duration": "15"},
 }
 
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
@@ -52,7 +55,7 @@ MAX_WORDS_PER_RENDER = 900
 
 # Target words per scene to match Kling clip duration (avoids looping)
 # At ~135 effective WPM: 10s clip = ~22 words, 15s clip = ~34 words
-WORDS_PER_SCENE = {"v1.6": 22, "v2.1": 22, "v3.0": 34}
+WORDS_PER_SCENE = {"v1.6": 22, "v2.1": 22, "v3.0": 34, "v3.0-pro": 34, "o3": 34, "o3-pro": 34}
 
 HISTORY_FILE = Path(__file__).parent / "render_history.json"
 

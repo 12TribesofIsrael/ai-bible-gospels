@@ -901,11 +901,11 @@ LANDING_PAGE = """<!DOCTYPE html>
           <label class="block text-sm font-medium text-gray-300 mb-2">Kling AI Model</label>
           <div class="grid grid-cols-3 gap-3">
             <label class="relative cursor-pointer">
-              <input type="radio" name="kling-model" value="v1.6" class="peer sr-only" checked>
+              <input type="radio" name="kling-model" value="v1.6" class="peer sr-only">
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">v1.6 Standard</div>
                 <div class="text-xs text-gray-400 mt-1">Basic motion · Fastest</div>
-                <div class="text-xs text-amber-400 mt-1 font-medium">~$4.50/video</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">$0.035/sec</div>
               </div>
             </label>
             <label class="relative cursor-pointer">
@@ -913,15 +913,39 @@ LANDING_PAGE = """<!DOCTYPE html>
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">v2.1 Standard</div>
                 <div class="text-xs text-gray-400 mt-1">Better motion · Mid-tier</div>
-                <div class="text-xs text-amber-400 mt-1 font-medium">~$5.50/video</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">$0.035/sec</div>
               </div>
             </label>
             <label class="relative cursor-pointer">
-              <input type="radio" name="kling-model" value="v3.0" class="peer sr-only">
+              <input type="radio" name="kling-model" value="v3.0" class="peer sr-only" checked>
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">v3.0 Standard</div>
-                <div class="text-xs text-gray-400 mt-1">Best quality · Slowest</div>
-                <div class="text-xs text-amber-400 mt-1 font-medium">~$7.00/video</div>
+                <div class="text-xs text-gray-400 mt-1">Best value · 15s clips</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">$0.084/sec</div>
+              </div>
+            </label>
+            <label class="relative cursor-pointer">
+              <input type="radio" name="kling-model" value="v3.0-pro" class="peer sr-only">
+              <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+                <div class="text-sm font-semibold text-white">v3.0 Pro</div>
+                <div class="text-xs text-gray-400 mt-1">Higher quality · 15s clips</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">$0.112/sec</div>
+              </div>
+            </label>
+            <label class="relative cursor-pointer">
+              <input type="radio" name="kling-model" value="o3" class="peer sr-only">
+              <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-purple-500 peer-checked:bg-purple-500/10 transition-all">
+                <div class="text-sm font-semibold text-white">O3 Standard</div>
+                <div class="text-xs text-gray-400 mt-1">Character consistency</div>
+                <div class="text-xs text-purple-400 mt-1 font-medium">$0.168/sec</div>
+              </div>
+            </label>
+            <label class="relative cursor-pointer">
+              <input type="radio" name="kling-model" value="o3-pro" class="peer sr-only">
+              <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-purple-500 peer-checked:bg-purple-500/10 transition-all">
+                <div class="text-sm font-semibold text-white">O3 Pro</div>
+                <div class="text-xs text-gray-400 mt-1">Best consistency · Premium</div>
+                <div class="text-xs text-purple-400 mt-1 font-medium">$0.224/sec</div>
               </div>
             </label>
           </div>
