@@ -2,6 +2,7 @@
 import modal
 
 app = modal.App("ai-bible-gospels")
+volume = modal.Volume.from_name("ai-bible-gospels-data", create_if_missing=True)
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -34,6 +35,7 @@ image = (
 @app.function(
     image=image,
     secrets=[modal.Secret.from_name("ai-bible-gospels")],
+    volumes={"/data": volume},
     scaledown_window=300,
     timeout=600,
 )

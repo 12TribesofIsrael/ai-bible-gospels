@@ -59,6 +59,10 @@ WORDS_PER_SCENE = {"v1.6": 22, "v2.1": 22, "v3.0": 34, "v3.0-pro": 34, "o3": 34,
 
 HISTORY_FILE = Path(__file__).parent / "render_history.json"
 
+# Persistent state file — survives container restarts on Modal (uses /data volume)
+STATE_DIR = Path("/data") if Path("/data").exists() else Path(__file__).parent
+STATE_FILE = STATE_DIR / "pipeline_state.json"
+
 # ---------------------------------------------------------------------------
 # Shared pipeline state
 # ---------------------------------------------------------------------------
@@ -79,6 +83,35 @@ pipeline_state = {
 
 lock = threading.Lock()
 stop_requested = threading.Event()
+
+
+def save_state():
+    """Persist pipeline state to disk so it survives container restarts."""
+    try:
+        STATE_FILE.write_text(json.dumps(pipeline_state, default=str))
+    except Exception as e:
+        print(f"[state] Failed to save: {e}")
+
+
+def load_state():
+    """Restore pipeline state from disk on startup."""
+    global pipeline_state
+    if STATE_FILE.exists():
+        try:
+            saved = json.loads(STATE_FILE.read_text())
+            # If it was mid-render, mark as error so user can retry
+            if saved.get("phase") in ("generating_media", "rendering", "generating_scenes"):
+                saved["phase"] = "error"
+                saved["error"] = "Container restarted mid-render. Use Retry to resume from where it left off."
+                saved["message"] = f"Interrupted — {len(saved.get('processed', []))} scenes completed. Use Retry to resume."
+            pipeline_state.update(saved)
+            print(f"[state] Restored: {saved.get('phase')}, {len(saved.get('processed', []))} scenes processed")
+        except Exception as e:
+            print(f"[state] Failed to load: {e}")
+
+
+# Restore state on module load
+load_state()
 
 # ---------------------------------------------------------------------------
 # Claude prompt — image prompts only (narration is word-for-word scripture)
@@ -367,12 +400,14 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
         with lock:
             pipeline_state.update(phase="generating_media", current_scene=resume_from, total_scenes=total,
                                   message=f"Generating media for {total} scenes...", processed=list(processed), error=None, video_url=None)
+            save_state()
         for i, scene in enumerate(scenes, 1):
             if i <= resume_from:
                 continue
             if stop_requested.is_set():
                 with lock:
                     pipeline_state.update(phase="stopped", message="Stopped by user", processed=list(processed))
+                    save_state()
                 return
             with lock:
                 pipeline_state["current_scene"] = i
@@ -381,6 +416,7 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
             if stop_requested.is_set():
                 with lock:
                     pipeline_state.update(phase="stopped", message="Stopped by user", processed=list(processed))
+                    save_state()
                 return
             with lock:
                 pipeline_state["message"] = f"Scene {i}/{total} — Generating Kling {model} video..."
@@ -389,6 +425,7 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
             with lock:
                 pipeline_state["processed"] = list(processed)
                 pipeline_state["message"] = f"Scene {i}/{total} complete"
+                save_state()
         # Check if we need to split into multiple renders
         total_words = sum(len(p["narration"].split()) for p in processed if p.get("narration"))
         if total_words > MAX_WORDS_PER_RENDER:
@@ -415,9 +452,11 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
             with lock:
                 pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Video complete!")
         save_to_history("done")
+        save_state()
     except Exception as e:
         with lock:
             pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+            save_state()
         traceback.print_exc()
 
 
@@ -444,9 +483,11 @@ def run_fix_scene(scene_index, scene, processed, model="v1.6"):
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Fixed video complete!")
         save_to_history("done")
+        save_state()
     except Exception as e:
         with lock:
             pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+            save_state()
         traceback.print_exc()
 
 
@@ -492,9 +533,11 @@ def run_fix_scenes(fixes, processed, model="v1.6"):
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Batch fix complete!")
         save_to_history("done")
+        save_state()
     except Exception as e:
         with lock:
             pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+            save_state()
         traceback.print_exc()
 
 
@@ -532,6 +575,7 @@ async def api_generate(body: BiblicalGenerateInput):
 
         with lock:
             pipeline_state.update(scenes=scenes, message=f"Generated {len(scenes)} scenes — starting media pipeline...")
+            save_state()
 
         # Step 3: Kick off background pipeline
         thread = threading.Thread(target=run_pipeline, args=(scenes, body.model), daemon=True)
