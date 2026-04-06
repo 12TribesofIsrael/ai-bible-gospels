@@ -88,7 +88,12 @@ stop_requested = threading.Event()
 def save_state():
     """Persist pipeline state to disk so it survives container restarts."""
     try:
-        STATE_FILE.write_text(json.dumps(pipeline_state, default=str))
+        data = json.dumps(pipeline_state, default=str)
+        # Write + fsync to ensure data hits the volume before container can die
+        fd = os.open(str(STATE_FILE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+        os.write(fd, data.encode())
+        os.fsync(fd)
+        os.close(fd)
     except Exception as e:
         print(f"[state] Failed to save: {e}")
 
