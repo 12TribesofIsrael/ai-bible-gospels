@@ -958,10 +958,34 @@ LANDING_PAGE = """<!DOCTYPE html>
             onclick="approveText()"
             class="bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-3 rounded-xl transition-colors duration-200 flex items-center gap-2"
           >
-            <span>✓ Approve &amp; Generate Video</span>
+            <span>✓ Generate Scenes</span>
           </button>
         </div>
         <div id="approve-error" class="mt-3 text-red-400 text-sm hidden"></div>
+      </div>
+    </div>
+
+    <!-- ── STEP 2b: Scene Preview & Edit ── -->
+    <div id="step2b" class="step-panel hidden">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="bg-amber-500 text-black text-xs font-bold px-2.5 py-1 rounded-full">2b</span>
+          <h2 class="title-font text-lg font-semibold text-white">Review &amp; Edit Scenes</h2>
+        </div>
+        <p class="text-xs text-gray-400 mb-4">Claude AI generated these scenes from your scripture. Edit any field before generating video.</p>
+        <div id="v9ScenesContainer" class="space-y-4"></div>
+        <div class="flex items-center gap-4 mt-6">
+          <button onclick="addV9Scene()" class="border border-gray-600 hover:border-amber-500 text-gray-300 hover:text-amber-400 px-4 py-2 rounded-lg transition-colors text-sm">
+            + Add Scene
+          </button>
+          <button onclick="setStep(2)" class="border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white px-4 py-2 rounded-lg transition-colors text-sm">
+            ← Back to Text
+          </button>
+          <button onclick="startV9Video()" id="btnV9GenVideo"
+            class="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors text-sm ml-auto">
+            Generate Video →
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1836,19 +1860,18 @@ LANDING_PAGE = """<!DOCTYPE html>
       }
 
       const btn = document.getElementById('approve-btn');
-      const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v1.6';
+      const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v3.0';
       btn.innerHTML = '<span class="spinner"></span><span>Claude AI generating scenes...</span>';
       btn.disabled = true;
       hideError('approve-error');
 
       try {
-        const res = await fetch('/v9/api/generate', {
+        const res = await fetch('/v9/api/generate-scenes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: approvedText,
             model: model,
-            scene_count: 20,
             book: document.getElementById('bible-book')?.value || '',
             chapter: document.getElementById('bible-chapter')?.value || '',
           }),
@@ -1856,21 +1879,68 @@ LANDING_PAGE = """<!DOCTYPE html>
 
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.detail || 'Failed to start v9 pipeline.');
+          throw new Error(err.detail || 'Failed to generate scenes.');
         }
 
         const data = await res.json();
         v9Scenes = data.scenes || [];
-
-        setStep(3);
-        initV9Progress(data.total_scenes || v9Scenes.length);
-        startPolling();
+        renderV9Scenes();
+        setStep('2b');
       } catch (e) {
         showError('approve-error', e.message);
       } finally {
-        btn.innerHTML = '<span>✓ Approve &amp; Generate Video</span>';
+        btn.innerHTML = '<span>✓ Generate Scenes</span>';
         btn.disabled = false;
       }
+    }
+
+    function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function renderV9Scenes() {
+      const c = document.getElementById('v9ScenesContainer');
+      c.innerHTML = '';
+      v9Scenes.forEach((s, i) => {
+        c.innerHTML += '<div class="scene-card bg-gray-800 border border-gray-700 rounded-xl p-5" data-idx="'+i+'">'
+          +'<div class="flex items-center justify-between mb-3">'
+          +'<span class="text-amber-400 font-semibold text-sm">Scene '+(i+1)+' <span class="text-gray-500 text-xs ml-2">('+(s.type||'scripture')+')</span></span>'
+          +'<button onclick="removeV9Scene('+i+')" class="text-red-500 hover:text-red-400 text-xs">✕ Remove</button></div>'
+          +'<div class="grid grid-cols-1 md:grid-cols-2 gap-3">'
+          +'<div><label class="text-xs text-gray-500 block mb-1">Narration</label>'
+          +'<textarea rows="3" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500" onchange="v9Scenes['+i+'].narration=this.value">'+escHtml(s.narration||'')+'</textarea></div>'
+          +'<div><label class="text-xs text-gray-500 block mb-1">Image Prompt</label>'
+          +'<textarea rows="3" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500" onchange="v9Scenes['+i+'].imagePrompt=this.value">'+escHtml(s.imagePrompt||'')+'</textarea></div>'
+          +'<div><label class="text-xs text-gray-500 block mb-1">Motion</label>'
+          +'<input type="text" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500" value="'+escHtml(s.motion||'')+'" onchange="v9Scenes['+i+'].motion=this.value" /></div>'
+          +'<div><label class="text-xs text-gray-500 block mb-1">Lighting</label>'
+          +'<input type="text" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-amber-500" value="'+escHtml(s.lighting||'')+'" onchange="v9Scenes['+i+'].lighting=this.value" /></div>'
+          +'</div></div>';
+      });
+    }
+
+    function removeV9Scene(i) { v9Scenes.splice(i, 1); renderV9Scenes(); }
+    function addV9Scene() {
+      v9Scenes.push({type:'scripture', narration:'', imagePrompt:'', motion:'Slow cinematic camera movement', lighting:'Golden divine light from above'});
+      renderV9Scenes();
+    }
+
+    async function startV9Video() {
+      if (v9Scenes.length === 0) return alert('No scenes to generate');
+      const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v3.0';
+      const btn = document.getElementById('btnV9GenVideo');
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+      try {
+        const res = await fetch('/v9/api/generate-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenes: v9Scenes, model: model }),
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to start pipeline'); }
+        setStep(3);
+        initV9Progress(v9Scenes.length);
+        startPolling();
+      } catch(e) { alert(e.message); }
+      finally { btn.disabled = false; btn.textContent = 'Generate Video →'; }
     }
 
     // ── Navigation ────────────────────────────────────────────────────────────
@@ -1898,16 +1968,20 @@ LANDING_PAGE = """<!DOCTYPE html>
     }
 
     function setStep(n) {
-      [1, 2, 3].forEach(i => {
-        document.getElementById(`step${i}`).classList.toggle('hidden', i !== n);
+      // Hide all panels including 2b
+      ['1', '2', '2b', '3'].forEach(id => {
+        const el = document.getElementById(`step${id}`);
+        if (el) el.classList.toggle('hidden', id !== String(n));
       });
+      // Update step dots (1, 2, 3) — '2b' shares dot 2
+      const numericStep = n === '2b' ? 2 : n;
       [1, 2, 3].forEach(i => {
         const dot    = document.getElementById(`step-dot-${i}`);
         const circle = dot.querySelector('div');
-        if (i < n) {
+        if (i < numericStep) {
           dot.classList.remove('opacity-40');
           circle.className = 'w-7 h-7 rounded-full bg-green-600 text-white font-bold flex items-center justify-center text-xs';
-        } else if (i === n) {
+        } else if (i === numericStep) {
           dot.classList.remove('opacity-40');
           circle.className = 'w-7 h-7 rounded-full bg-amber-500 text-black font-bold flex items-center justify-center text-xs';
         } else {

@@ -9,7 +9,7 @@ AI Movie — a personal workspace for building AI-generated video systems. Conta
 | Workflow | Location | Status | Description |
 |---|---|---|---|
 | **General AI Movie** | root (`app.py`, `pipeline.py`, `src/`) | Reference | Python/Gradio pipeline: text prompt → images → video clips → narrated movie via fal.ai + OpenAI |
-| **Biblical Cinematic** | `workflows/biblical-cinematic/` | ✓ Production (v10) | KJV scripture → cleaned text → Claude AI scenes → FLUX + Kling + JSON2Video → cinematic MP4 |
+| **Biblical Cinematic** | `workflows/biblical-cinematic/` | ✓ Production (v12) | KJV scripture → cleaned text → Claude AI scenes → FLUX + Kling + JSON2Video → cinematic MP4 |
 | **Custom Script** | `workflows/custom-script/` | ✓ Production | Any script/concept → Claude AI scenes → FLUX + Kling + JSON2Video → dynamic-length MP4 |
 
 **Unified Web App:** Both production workflows run on a single server at **http://localhost:8000** with tab navigation:
@@ -72,28 +72,31 @@ pytest tests/
 - **FastAPI** (web server + API), **Python** (text processing), **n8n** (video pipeline orchestration)
 - **Perplexity AI** (scene gen), **fal.ai** (FLUX + Kling), **ElevenLabs** (voice), **JSON2Video** (assembly)
 
-### Full Pipeline (v10 — no n8n)
+### Full Pipeline (v12 — no n8n)
 ```
 Browser (http://localhost:8000)
-  → POST /api/clean          FastAPI server runs text processor → returns cleaned sections
-  → POST /v9/api/generate    Splits scripture into scene chunks → Claude AI generates image prompts
+  → POST /api/clean               FastAPI server runs text processor → returns cleaned sections
+  → POST /v9/api/generate-scenes  Splits scripture → Claude AI generates scenes (image prompts, motion, lighting)
+  → User reviews & edits scenes in the browser (narration, imagePrompt, motion, lighting)
+  → POST /v9/api/generate-video   Takes edited scenes → kicks off FLUX + Kling + JSON2Video pipeline
       → Python pipeline (background thread):
           → fal.ai FLUX Pro         → generate image per scene
-          → fal.ai Kling v1.6/v2.1/v3.0 → animate each image to video clip
+          → fal.ai Kling v1.6/v2.1/v3.0/v3.0-pro/o3/o3-pro → animate each image to video clip
           → JSON2Video              → templateless payload with ElevenLabs narration + subtitles → final MP4
-  → GET  /v9/api/status      Browser polls every 2s → real per-scene progress bar
-  → POST /v9/api/retry       Resume from failed scene
-  → POST /v9/api/fix-scene   Regenerate one scene without redoing the whole video
-  → POST /v9/api/fix-scenes  Batch-fix multiple scenes with ONE JSON2Video render
-  → POST /v9/api/stop        Stop pipeline mid-render to save credits
-  → GET  /v9/api/history     Browse past renders (persisted to JSON file)
-  → GET  /v9/api/history/{id} Full scene data for a past render
-  → Final MP4 with Download button
+          → Auto-split              → chapters over 900 words split into 2 renders automatically
+  → GET  /v9/api/status            Browser polls every 2s → real per-scene progress bar
+  → POST /v9/api/retry             Resume from failed scene (state persisted to Modal Volume)
+  → POST /v9/api/fix-scene         Regenerate one scene without redoing the whole video
+  → POST /v9/api/fix-scenes        Batch-fix multiple scenes with ONE JSON2Video render
+  → POST /v9/api/stop              Stop pipeline mid-render to save credits
+  → GET  /v9/api/history           Browse past renders (persisted to JSON file)
+  → GET  /v9/api/history/{id}      Full scene data for a past render
+  → Final MP4 with Download button (Part 1 / Part 2 if auto-split)
 ```
 
 **No n8n required.** Narration is the scripture text word-for-word. Claude only generates image prompts, motion, and lighting.
 
-**Cost:** ~$4.50–7.00/video depending on Kling model | **Version:** v10
+**Cost:** ~$4.50–7.00/video depending on Kling model | **Version:** v12
 
 ### Start the unified web app
 ```bash
@@ -107,14 +110,17 @@ python app.py
 ### How to use
 1. Go to **http://localhost:8000** (use nav tabs to switch between Scripture Mode and Custom Script Mode)
 2. Paste KJV scripture → **Convert & Clean**
-3. Review/edit the cleaned text → **Approve & Generate Video**
-4. Live progress bar tracks Claude AI → FLUX → Kling → JSON2Video in real time
-5. Use **⏹ Stop Rendering** to cancel mid-render and save credits (completed scenes preserved)
-6. Use **Fix Scenes** panel: check multiple scenes, edit prompts inline, regenerate all with ONE render
-7. Download the raw MP4 when done → drop it into `output/raw/`
-8. Browse **Render History** panel to view past renders or reload scenes into the fix panel
-9. Scroll to **Step 4 — Post-Production** → click **↺ Refresh** → click **▶ Start Rendering**
-10. Progress bar tracks normalize → concat → logo overlay → **Download Final Video**
+3. Review/edit the cleaned text → **Generate Scenes** (Claude AI only — no credits spent yet)
+4. **Review & Edit Scenes** — edit narration, image prompts, motion, lighting for each scene. Add/remove scenes.
+5. Click **Generate Video →** to start FLUX + Kling + JSON2Video pipeline
+6. Live progress bar tracks scene-by-scene progress in real time
+7. Use **⏹ Stop Rendering** to cancel mid-render and save credits (completed scenes preserved)
+8. Use **Retry** to resume from where it stopped (state persisted across container restarts)
+9. Use **Fix Scenes** panel: check multiple scenes, edit prompts inline, regenerate all with ONE render
+10. Download the raw MP4 when done (auto-split into Part 1/Part 2 for long chapters)
+11. Browse **Render History** panel to view past renders or reload scenes into the fix panel
+12. Scroll to **Step 4 — Post-Production** → click **↺ Refresh** → click **▶ Start Rendering**
+13. Progress bar tracks normalize → concat → logo overlay → **Download Final Video**
 
 ### n8n setup notes
 - The n8n workflow must be **Published/Active** for the production webhook to fire
@@ -125,13 +131,31 @@ python app.py
   `Stop-Process -Id <pid> -Force` or kill all python: `Get-Process python | Stop-Process -Force`
 - **Duplicate `.env` keys:** `python-dotenv` uses the **first** occurrence. If a key appears twice, the placeholder wins. Always edit the existing line rather than appending a new one.
 
+### Recovery (if container restarts mid-render)
+Pipeline state is persisted to a Modal Volume (`/data/pipeline_state.json`). On restart, the Retry button resumes from the last completed scene. If state is lost, **recover Kling video URLs from fal.ai history**:
+```python
+import fal_client, requests, os
+os.environ['FAL_KEY'] = '<key>'
+# 1. Get request IDs from fal.ai history API
+resp = requests.get('https://api.fal.ai/v1/models/requests/by-endpoint',
+    headers={'Authorization': 'Key <FAL_KEY>'},
+    params={'endpoint_id': 'fal-ai/kling-video/v3/standard/image-to-video', 'limit': 40, 'status': 'success'})
+items = sorted(resp.json()['items'], key=lambda x: x['started_at'])
+# 2. Fetch video URLs using fal_client SDK (history API doesn't return payloads reliably)
+for item in items:
+    result = fal_client.result('fal-ai/kling-video/v3/standard/image-to-video', item['request_id'])
+    print(result['video']['url'])
+# 3. Re-generate narration with Claude, pair with recovered URLs, submit to JSON2Video
+```
+**IMPORTANT:** The fal.ai history API `expand=payloads` does NOT reliably return `json_output` for older requests. Always use `fal_client.result()` to fetch individual request results — this works reliably.
+
 ### Key Files
 | File | Purpose |
 |---|---|
 | [workflows/biblical-cinematic/README.md](workflows/biblical-cinematic/README.md) | Complete setup guide |
 | [workflows/biblical-cinematic/ERRORS.md](workflows/biblical-cinematic/ERRORS.md) | Running log of bugs and root-cause fixes — check before debugging |
 | [workflows/biblical-cinematic/server/app.py](workflows/biblical-cinematic/server/app.py) | FastAPI server — `/api/clean`, `/api/render/*` (Step 4), `/api/upload/*` (Step 5), mounts v9 router at `/v9` + custom router at `/custom` |
-| [workflows/biblical-cinematic/server/biblical_pipeline.py](workflows/biblical-cinematic/server/biblical_pipeline.py) | v10 pipeline router — `/v9/api/generate`, `/v9/api/status`, `/v9/api/retry`, `/v9/api/fix-scene`, `/v9/api/fix-scenes`, `/v9/api/stop`, `/v9/api/history` (no n8n) |
+| [workflows/biblical-cinematic/server/biblical_pipeline.py](workflows/biblical-cinematic/server/biblical_pipeline.py) | v12 pipeline router — `/v9/api/generate-scenes`, `/v9/api/generate-video`, `/v9/api/status`, `/v9/api/retry`, `/v9/api/fix-scene`, `/v9/api/fix-scenes`, `/v9/api/stop`, `/v9/api/history` (no n8n) |
 | [workflows/biblical-cinematic/server/requirements.txt](workflows/biblical-cinematic/server/requirements.txt) | Server dependencies |
 | [workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py](workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py) | KJV text cleaner/splitter (imported by server) |
 | [workflows/biblical-cinematic/n8n/v7.2-production.json](workflows/biblical-cinematic/n8n/v7.2-production.json) | **Current production workflow** — Import into n8n (v7.2: field-name-anchored JSON extraction, proven stable) |
@@ -339,7 +363,8 @@ modal deploy modal_app.py
 ### Notes
 - Auth middleware only activates when `APP_USERNAME` + `APP_PASSWORD` are set (skipped in local dev)
 - Step 4 (post-production) and Step 5 (YouTube upload) are local-only — they require FFmpeg and filesystem access
-- Container stays warm for 5 minutes (`scaledown_window=300`)
+- Container stays warm for 5 minutes (`scaledown_window=300`), timeout 30 minutes (`timeout=1800`)
+- Pipeline state persisted to Modal Volume (`ai-bible-gospels-data`) at `/data/pipeline_state.json` — survives container restarts
 - Redeploy updates code but warm containers keep old code — run `modal app stop ai-bible-gospels` before `modal deploy` to force refresh
 
 ---

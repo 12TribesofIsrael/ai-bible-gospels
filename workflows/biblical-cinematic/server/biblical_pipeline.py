@@ -552,8 +552,59 @@ def run_fix_scenes(fixes, processed, model="v1.6"):
 biblical_router = APIRouter()
 
 
+@biblical_router.post("/api/generate-scenes")
+async def api_generate_scenes(body: BiblicalGenerateInput):
+    """Step 1: Split scripture + Claude AI → return scenes for user review. No media generation."""
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(400, "ANTHROPIC_API_KEY not set")
+    if pipeline_state["phase"] in ("generating_scenes", "generating_media", "rendering"):
+        raise HTTPException(409, "Pipeline already running")
+
+    try:
+        with lock:
+            pipeline_state.update(phase="generating_scenes", message="Splitting scripture and generating scene visuals with Claude AI...",
+                                  scenes=None, error=None, video_url=None, video_urls=[], processed=[],
+                                  book=body.book, chapter=body.chapter, model=body.model)
+
+        words_target = WORDS_PER_SCENE.get(body.model, 30)
+        narration_chunks = split_scripture_into_scenes(body.text, words_target)
+        scenes = generate_image_prompts(narration_chunks, body.book, body.chapter)
+
+        with lock:
+            pipeline_state.update(phase="idle", scenes=scenes, message=f"Generated {len(scenes)} scenes")
+            save_state()
+
+        return {"scenes": scenes}
+    except Exception as e:
+        with lock:
+            pipeline_state.update(phase="error", error=str(e))
+        raise HTTPException(500, str(e))
+
+
+@biblical_router.post("/api/generate-video")
+async def api_generate_video(body: BiblicalScenesInput):
+    """Step 2: Take (possibly edited) scenes → kick off FLUX + Kling + JSON2Video pipeline."""
+    if not FAL_KEY:
+        raise HTTPException(400, "FAL_KEY not set")
+    if not JSON2VIDEO_API_KEY:
+        raise HTTPException(400, "JSON2VIDEO_API_KEY not set")
+    model = body.model
+    if model not in KLING_MODELS:
+        raise HTTPException(400, f"Unknown model '{model}'. Choose from: {', '.join(KLING_MODELS.keys())}")
+    if pipeline_state["phase"] in ("generating_scenes", "generating_media", "rendering"):
+        raise HTTPException(409, "Pipeline already running")
+
+    scenes = body.scenes
+    with lock:
+        pipeline_state.update(scenes=scenes, model=model)
+    thread = threading.Thread(target=run_pipeline, args=(scenes, model), daemon=True)
+    thread.start()
+    return {"status": "started", "total_scenes": len(scenes), "model": model}
+
+
 @biblical_router.post("/api/generate")
 async def api_generate(body: BiblicalGenerateInput):
+    """Legacy: generate scenes + start pipeline in one call."""
     if not ANTHROPIC_API_KEY:
         raise HTTPException(400, "ANTHROPIC_API_KEY not set")
     if not FAL_KEY:
@@ -571,18 +622,14 @@ async def api_generate(body: BiblicalGenerateInput):
                                   scenes=None, error=None, video_url=None, video_urls=[], processed=[],
                                   book=body.book, chapter=body.chapter, model=body.model)
 
-        # Step 1: Split scripture into narration chunks (sized to match Kling clip duration)
         words_target = WORDS_PER_SCENE.get(body.model, 30)
         narration_chunks = split_scripture_into_scenes(body.text, words_target)
-
-        # Step 2: Claude generates image prompts + intro/outro
         scenes = generate_image_prompts(narration_chunks, body.book, body.chapter)
 
         with lock:
             pipeline_state.update(scenes=scenes, message=f"Generated {len(scenes)} scenes — starting media pipeline...")
             save_state()
 
-        # Step 3: Kick off background pipeline
         thread = threading.Thread(target=run_pipeline, args=(scenes, body.model), daemon=True)
         thread.start()
 

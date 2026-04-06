@@ -37,7 +37,7 @@ image = (
     secrets=[modal.Secret.from_name("ai-bible-gospels")],
     volumes={"/data": volume},
     scaledown_window=300,
-    timeout=600,
+    timeout=1800,
 )
 @modal.asgi_app()
 def web():
