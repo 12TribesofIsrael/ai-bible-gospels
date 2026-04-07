@@ -33,7 +33,7 @@ FAL_KEY = os.getenv("FAL_KEY")
 JSON2VIDEO_API_KEY = os.getenv("JSON2VIDEO_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-FLUX_URL = "https://fal.run/fal-ai/flux-pro"
+FLUX_URL = "https://fal.run/fal-ai/flux-pro/v1.1"
 JSON2VIDEO_URL = "https://api.json2video.com/v2/movies"
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 
@@ -142,7 +142,7 @@ YOUR TASK:
 You will receive scripture text that has been split into narration chunks. The narration is FINAL — do NOT modify it.
 
 For each narration chunk, generate ONLY visual descriptions:
-1. **imagePrompt**: Extremely detailed visual description for AI image generation. Include character ethnicity per rules above, clothing details, setting, camera angle, atmosphere. End with "photorealistic, cinematic, 8K detail". NEVER include text, words, letters, or titles in the image prompt — AI misspells them.
+1. **imagePrompt**: Extremely detailed visual description for AI image generation. Include character ethnicity per rules above, clothing details, setting, camera angle, atmosphere. ALWAYS end with "photorealistic, cinematic lighting, 8K, shot on RED V-Raptor, hyper-detailed skin texture and fabric weave, natural film grain". NEVER use words like "painting", "illustration", "stylized", "artistic", "cartoon", "anime", "rendered", "digital art", or "concept art". NEVER include text, words, letters, or titles in the image prompt — AI misspells them.
 2. **motion**: Camera movement description for video animation (zoom, pan, tilt, pull back, tracking shot, etc.). Vary angles — never repeat the same motion twice in a row.
 3. **lighting**: Specific dramatic lighting for the scene (golden hour, divine shaft of light, torch-lit darkness, moonlit, etc.).
 
@@ -308,12 +308,16 @@ def fal_headers():
     return {"Authorization": f"Key {FAL_KEY}", "Content-Type": "application/json"}
 
 
+NEGATIVE_PROMPT = "cartoon, anime, illustration, painting, drawing, digital art, concept art, stylized, 3D render, CGI, plastic skin, smooth skin, airbrushed, watercolor, sketch, unrealistic, low quality, blurry"
+
+
 def generate_image(scene):
     prompt = scene["imagePrompt"]
     if scene.get("lighting"):
         prompt += f", {scene['lighting']}"
     resp = requests.post(FLUX_URL, headers=fal_headers(), json={
-        "prompt": prompt, "image_size": "landscape_16_9", "num_inference_steps": 28, "num_images": 1,
+        "prompt": prompt, "negative_prompt": NEGATIVE_PROMPT,
+        "image_size": "landscape_16_9", "num_inference_steps": 28, "num_images": 1,
     }, timeout=120)
     resp.raise_for_status()
     return resp.json()["images"][0]["url"]

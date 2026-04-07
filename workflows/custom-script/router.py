@@ -26,7 +26,7 @@ FAL_KEY = os.getenv("FAL_KEY")
 JSON2VIDEO_API_KEY = os.getenv("JSON2VIDEO_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-FLUX_URL = "https://fal.run/fal-ai/flux-pro"
+FLUX_URL = "https://fal.run/fal-ai/flux-pro/v1.1"
 KLING_MODELS = {
     "v1.6": {"url": "https://fal.run/fal-ai/kling-video/v1.6/standard/image-to-video", "duration": "10"},
     "v2.1": {"url": "https://fal.run/fal-ai/kling-video/v2.1/standard/image-to-video", "duration": "10"},
@@ -157,12 +157,16 @@ def fal_headers():
     return {"Authorization": f"Key {FAL_KEY}", "Content-Type": "application/json"}
 
 
+NEGATIVE_PROMPT = "cartoon, anime, illustration, painting, drawing, digital art, concept art, stylized, 3D render, CGI, plastic skin, smooth skin, airbrushed, watercolor, sketch, unrealistic, low quality, blurry"
+
+
 def generate_image(scene):
     prompt = scene["imagePrompt"]
     if scene.get("lighting"):
         prompt += f", {scene['lighting']}"
     resp = requests.post(FLUX_URL, headers=fal_headers(), json={
-        "prompt": prompt, "image_size": "landscape_16_9", "num_inference_steps": 28, "num_images": 1,
+        "prompt": prompt, "negative_prompt": NEGATIVE_PROMPT,
+        "image_size": "landscape_16_9", "num_inference_steps": 28, "num_images": 1,
     }, timeout=120)
     resp.raise_for_status()
     return resp.json()["images"][0]["url"]
