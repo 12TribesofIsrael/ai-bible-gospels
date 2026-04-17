@@ -36,9 +36,10 @@ import re
 import threading
 import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
+from slowapi.errors import RateLimitExceeded
 
 from biblical_text_processor_v2 import (
     clean_text,
@@ -47,8 +48,11 @@ from biblical_text_processor_v2 import (
     create_sections,
     format_section,
 )
+from rate_limit import limiter, rate_limit_exceeded_handler, EXPENSIVE_LIMIT, MEDIUM_LIMIT
 
 app = FastAPI(title="Biblical Cinematic Generator")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # ── Basic Auth middleware (only when deployed) ────────────────────────────────
 _AUTH_USER = os.getenv("APP_USERNAME")
@@ -304,7 +308,8 @@ async def _generate_cinematic_intro(book: str, chapter: str, passage_text: str) 
 # ── API Routes ────────────────────────────────────────────────────────────────
 
 @app.post("/api/clean", response_model=CleanResponse)
-async def api_clean(req: CleanRequest):
+@limiter.limit(MEDIUM_LIMIT)
+async def api_clean(request: Request, req: CleanRequest):
     """Clean and split raw biblical text into video-ready sections."""
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
@@ -348,7 +353,8 @@ async def api_clean(req: CleanRequest):
 
 
 @app.post("/api/generate", response_model=GenerateResponse)
-async def api_generate(req: GenerateRequest):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_generate(request: Request, req: GenerateRequest):
     """Send approved text to the n8n webhook to trigger video generation."""
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="Approved text cannot be empty.")
@@ -693,7 +699,8 @@ async def render_check():
 
 
 @app.post("/api/render/start")
-async def render_start(req: RenderRequest):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def render_start(request: Request, req: RenderRequest):
     """Validate raw file exists, then launch post-production in a background thread."""
     if render_state["status"] == "running":
         return {"status": "error", "message": "A render is already in progress."}

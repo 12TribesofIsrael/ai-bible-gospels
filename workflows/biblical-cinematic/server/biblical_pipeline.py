@@ -22,9 +22,11 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+from rate_limit import limiter, EXPENSIVE_LIMIT, MEDIUM_LIMIT
 
 # ---------------------------------------------------------------------------
 # Config
@@ -557,7 +559,8 @@ biblical_router = APIRouter()
 
 
 @biblical_router.post("/api/generate-scenes")
-async def api_generate_scenes(body: BiblicalGenerateInput):
+@limiter.limit(MEDIUM_LIMIT)
+async def api_generate_scenes(request: Request, body: BiblicalGenerateInput):
     """Step 1: Split scripture + Claude AI → return scenes for user review. No media generation."""
     if not ANTHROPIC_API_KEY:
         raise HTTPException(400, "ANTHROPIC_API_KEY not set")
@@ -586,7 +589,8 @@ async def api_generate_scenes(body: BiblicalGenerateInput):
 
 
 @biblical_router.post("/api/generate-video")
-async def api_generate_video(body: BiblicalScenesInput):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_generate_video(request: Request, body: BiblicalScenesInput):
     """Step 2: Take (possibly edited) scenes → kick off FLUX + Kling + JSON2Video pipeline."""
     if not FAL_KEY:
         raise HTTPException(400, "FAL_KEY not set")
@@ -607,7 +611,8 @@ async def api_generate_video(body: BiblicalScenesInput):
 
 
 @biblical_router.post("/api/generate")
-async def api_generate(body: BiblicalGenerateInput):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_generate(request: Request, body: BiblicalGenerateInput):
     """Legacy: generate scenes + start pipeline in one call."""
     if not ANTHROPIC_API_KEY:
         raise HTTPException(400, "ANTHROPIC_API_KEY not set")
@@ -645,7 +650,8 @@ async def api_generate(body: BiblicalGenerateInput):
 
 
 @biblical_router.post("/api/retry")
-async def api_retry():
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_retry(request: Request):
     if not FAL_KEY or not JSON2VIDEO_API_KEY:
         raise HTTPException(400, "Missing FAL_KEY or JSON2VIDEO_API_KEY")
     with lock:
@@ -662,7 +668,8 @@ async def api_retry():
 
 
 @biblical_router.post("/api/fix-scene")
-async def api_fix_scene(body: BiblicalFixSceneInput):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_fix_scene(request: Request, body: BiblicalFixSceneInput):
     if not FAL_KEY or not JSON2VIDEO_API_KEY:
         raise HTTPException(400, "Missing FAL_KEY or JSON2VIDEO_API_KEY")
     if pipeline_state["phase"] in ("generating_media", "rendering"):
@@ -679,7 +686,8 @@ async def api_fix_scene(body: BiblicalFixSceneInput):
 
 
 @biblical_router.post("/api/fix-scenes")
-async def api_fix_scenes(body: BiblicalFixScenesInput):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_fix_scenes(request: Request, body: BiblicalFixScenesInput):
     if not FAL_KEY or not JSON2VIDEO_API_KEY:
         raise HTTPException(400, "Missing FAL_KEY or JSON2VIDEO_API_KEY")
     if pipeline_state["phase"] in ("generating_media", "rendering"):

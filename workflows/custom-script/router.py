@@ -18,8 +18,10 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+
+from rate_limit import limiter, EXPENSIVE_LIMIT, MEDIUM_LIMIT
 from pydantic import BaseModel
 
 FAL_KEY = os.getenv("FAL_KEY")
@@ -459,7 +461,8 @@ custom_router = APIRouter()
 
 
 @custom_router.post("/api/generate-scenes")
-async def api_generate_scenes(body: ScriptInput):
+@limiter.limit(MEDIUM_LIMIT)
+async def api_generate_scenes(request: Request, body: ScriptInput):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(400, "ANTHROPIC_API_KEY not set in .env")
     try:
@@ -476,7 +479,8 @@ async def api_generate_scenes(body: ScriptInput):
 
 
 @custom_router.post("/api/generate-video")
-async def api_generate_video(body: ScenesInput):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_generate_video(request: Request, body: ScenesInput):
     missing = [k for k, v in {"FAL_KEY": FAL_KEY, "JSON2VIDEO_API_KEY": JSON2VIDEO_API_KEY}.items() if not v]
     if missing:
         raise HTTPException(400, f"Missing env vars: {', '.join(missing)}")
@@ -491,7 +495,8 @@ async def api_generate_video(body: ScenesInput):
 
 
 @custom_router.post("/api/retry")
-async def api_retry():
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_retry(request: Request):
     missing = [k for k, v in {"FAL_KEY": FAL_KEY, "JSON2VIDEO_API_KEY": JSON2VIDEO_API_KEY}.items() if not v]
     if missing:
         raise HTTPException(400, f"Missing env vars: {', '.join(missing)}")
@@ -510,7 +515,8 @@ async def api_retry():
 
 
 @custom_router.post("/api/fix-scene")
-async def api_fix_scene(body: FixSceneInput):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_fix_scene(request: Request, body: FixSceneInput):
     missing = [k for k, v in {"FAL_KEY": FAL_KEY, "JSON2VIDEO_API_KEY": JSON2VIDEO_API_KEY}.items() if not v]
     if missing:
         raise HTTPException(400, f"Missing env vars: {', '.join(missing)}")
@@ -528,7 +534,8 @@ async def api_fix_scene(body: FixSceneInput):
 
 
 @custom_router.post("/api/fix-scenes")
-async def api_fix_scenes(body: BatchFixInput):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_fix_scenes(request: Request, body: BatchFixInput):
     missing = [k for k, v in {"FAL_KEY": FAL_KEY, "JSON2VIDEO_API_KEY": JSON2VIDEO_API_KEY}.items() if not v]
     if missing:
         raise HTTPException(400, f"Missing env vars: {', '.join(missing)}")
@@ -544,7 +551,8 @@ async def api_fix_scenes(body: BatchFixInput):
 
 
 @custom_router.post("/api/preview-scenes")
-async def api_preview_scenes(body: PreviewScenesInput):
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_preview_scenes(request: Request, body: PreviewScenesInput):
     missing = [k for k, v in {"FAL_KEY": FAL_KEY}.items() if not v]
     if missing:
         raise HTTPException(400, f"Missing env vars: {', '.join(missing)}")
@@ -560,7 +568,8 @@ async def api_preview_scenes(body: PreviewScenesInput):
 
 
 @custom_router.post("/api/approve-fixes")
-async def api_approve_fixes():
+@limiter.limit(EXPENSIVE_LIMIT)
+async def api_approve_fixes(request: Request):
     if pipeline_state["phase"] not in ("preview_ready", "done", "idle", "error", "stopped"):
         raise HTTPException(409, "Pipeline is still running")
     with lock:

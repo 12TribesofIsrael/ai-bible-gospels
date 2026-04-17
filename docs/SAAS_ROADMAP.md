@@ -6,11 +6,18 @@ Turn AI Bible Gospels from a personal tool into a paid SaaS product. Tasks order
 
 ## Phase 1: Quick Wins (1-2 hours each)
 
-### 1. Rate Limiting
+### 1. Rate Limiting ✓ (done 2026-04-17)
 **Effort:** Small | **Why:** Prevents abuse — someone running 100 renders on your dime
-- Add request rate limiting to FastAPI (e.g. `slowapi` or simple in-memory counter)
-- Limit: X renders per IP per hour
-- Return 429 Too Many Requests when exceeded
+- ~~Add request rate limiting to FastAPI (e.g. `slowapi` or simple in-memory counter)~~
+- ~~Limit: X renders per IP per hour~~
+- ~~Return 429 Too Many Requests when exceeded~~
+
+**Shipped:** `slowapi` with IP from `X-Forwarded-For` (Modal proxy-aware).
+- **5/hour** on render endpoints: `generate-video`, `retry`, `fix-scene`, `fix-scenes`, `preview-scenes`, `approve-fixes`, `/api/render/start`, `/api/generate`
+- **30/hour** on Claude-only endpoints: `/api/clean`, `generate-scenes`
+- Status, history, stop, and Bible-data GETs are unlimited (polled every 2s)
+- 429 returns `{"error": "Rate limit exceeded (5 per 1 hour). Try again later."}`
+- Shared singleton in [server/rate_limit.py](../workflows/biblical-cinematic/server/rate_limit.py)
 
 ### 2. Environment-Based API Key Isolation
 **Effort:** Small | **Why:** Stop exposing your personal API keys
