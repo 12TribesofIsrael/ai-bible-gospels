@@ -12,6 +12,7 @@ image = (
         "httpx>=0.27.0",
         "python-dotenv>=1.0.0",
         "requests>=2.31.0",
+        "slowapi>=0.1.9",
     )
     .add_local_dir(
         "workflows/biblical-cinematic/server",
