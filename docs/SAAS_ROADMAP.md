@@ -25,11 +25,21 @@ Turn AI Bible Gospels from a personal tool into a paid SaaS product. Tasks order
 - Add support for user-provided API keys (BYOK model) as an alternative to credits
 - Input fields in settings: "Use your own fal.ai key", "Use your own Anthropic key"
 
-### 3. Usage Tracking / Analytics
+### 2. Environment-Based API Key Isolation (SKIPPED)
+Decided to skip BYOK — most real users won't have their own fal.ai/Anthropic accounts. If we ever add it for power users, it's a contained change in the expensive endpoints.
+
+### 3. Usage Tracking / Analytics ✓ (done 2026-04-17)
 **Effort:** Small | **Why:** Know what's being used before you charge for it
-- Log each render: timestamp, user (IP or session), model used, scene count, word count, status
-- Save to a JSON file or simple SQLite on the Modal Volume
-- Admin endpoint: `GET /admin/usage` to view stats
+- ~~Log each render: timestamp, user (IP or session), model used, scene count, word count, status~~
+- ~~Save to a JSON file or simple SQLite on the Modal Volume~~
+- ~~Admin endpoint: `GET /admin/usage` to view stats~~
+
+**Shipped:** one event per money-spending API hit.
+- Logged fields: `ts`, `iso`, `ip` (X-Forwarded-For), `event`, `model`, `scenes`, `words`, endpoint-specific extras
+- Stored in Modal Volume at `/data/usage_log.json` (dev falls back to local file next to server)
+- Instrumented endpoints: `biblical_generate_video`, `biblical_generate_legacy`, `biblical_retry`, `biblical_fix_scene`, `biblical_fix_scenes`, `custom_generate_video`, `custom_retry`, `custom_fix_scene`, `custom_fix_scenes`, `custom_preview_scenes`, `custom_approve_fixes`, `app_generate_n8n`, `app_post_production`
+- Admin endpoint: `GET /admin/usage` returns totals, unique IPs, breakdown by event and model, top 20 IPs, last 50 events. Already behind Basic Auth.
+- Module: [server/usage.py](../workflows/biblical-cinematic/server/usage.py). Never raises — tracking failure won't break a render.
 
 ---
 

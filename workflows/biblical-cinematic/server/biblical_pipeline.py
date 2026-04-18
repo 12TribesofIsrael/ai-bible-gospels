@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from rate_limit import limiter, EXPENSIVE_LIMIT, MEDIUM_LIMIT
+from usage import log_event
 
 # ---------------------------------------------------------------------------
 # Config
@@ -605,6 +606,8 @@ async def api_generate_video(request: Request, body: BiblicalScenesInput):
     scenes = body.scenes
     with lock:
         pipeline_state.update(scenes=scenes, model=model)
+    log_event(request, "biblical_generate_video", model=model, scenes=len(scenes),
+              words=sum(len((s.get("narration") or "").split()) for s in scenes))
     thread = threading.Thread(target=run_pipeline, args=(scenes, model), daemon=True)
     thread.start()
     return {"status": "started", "total_scenes": len(scenes), "model": model}
@@ -639,6 +642,8 @@ async def api_generate(request: Request, body: BiblicalGenerateInput):
             pipeline_state.update(scenes=scenes, message=f"Generated {len(scenes)} scenes — starting media pipeline...")
             save_state()
 
+        log_event(request, "biblical_generate_legacy", model=body.model, scenes=len(scenes),
+                  book=body.book, chapter=body.chapter)
         thread = threading.Thread(target=run_pipeline, args=(scenes, body.model), daemon=True)
         thread.start()
 
@@ -662,6 +667,7 @@ async def api_retry(request: Request):
         resume_from = len(processed)
     if not scenes:
         raise HTTPException(400, "No scenes to retry — generate first")
+    log_event(request, "biblical_retry", scenes=len(scenes), resume_from=resume_from)
     thread = threading.Thread(target=run_pipeline, args=(scenes, "v3.0", resume_from, processed), daemon=True)
     thread.start()
     return {"status": "resuming", "resume_from": resume_from + 1, "total_scenes": len(scenes)}
@@ -680,6 +686,8 @@ async def api_fix_scene(request: Request, body: BiblicalFixSceneInput):
         raise HTTPException(400, "No completed video to fix")
     if body.scene_index < 0 or body.scene_index >= len(processed):
         raise HTTPException(400, f"Scene index {body.scene_index} out of range")
+    log_event(request, "biblical_fix_scene", model=body.model, scene_index=body.scene_index,
+              total_scenes=len(processed))
     thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "fixing", "scene": body.scene_index + 1, "total_scenes": len(processed)}
@@ -704,6 +712,8 @@ async def api_fix_scenes(request: Request, body: BiblicalFixScenesInput):
             raise HTTPException(400, f"Scene index {idx} out of range")
         if "scene" not in fix:
             raise HTTPException(400, f"Missing scene data for index {idx}")
+    log_event(request, "biblical_fix_scenes", model=body.model, fix_count=len(body.fixes),
+              total_scenes=len(processed))
     thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "fixing", "scenes": len(body.fixes), "total_scenes": len(processed)}

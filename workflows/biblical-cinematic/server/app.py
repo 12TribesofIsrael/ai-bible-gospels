@@ -49,6 +49,7 @@ from biblical_text_processor_v2 import (
     format_section,
 )
 from rate_limit import limiter, rate_limit_exceeded_handler, EXPENSIVE_LIMIT, MEDIUM_LIMIT
+from usage import log_event, get_summary
 
 app = FastAPI(title="Biblical Cinematic Generator")
 app.state.limiter = limiter
@@ -374,6 +375,8 @@ async def api_generate(request: Request, req: GenerateRequest):
         )
 
     print(f"🎬 Generating with Kling {req.model} → {N8N_WEBHOOK_URL[:60]}...")
+
+    log_event(request, "app_generate_n8n", model=req.model, words=len(req.text.split()))
 
     payload = {"text": req.text.strip()}
 
@@ -721,6 +724,7 @@ async def render_start(request: Request, req: RenderRequest):
         "error":    None,
     })
 
+    log_event(request, "app_post_production", file=safe_name)
     threading.Thread(target=_run_render, args=(raw_file,), daemon=True).start()
     return {"status": "started"}
 
@@ -2348,6 +2352,12 @@ LANDING_PAGE = """<!DOCTYPE html>
 @app.get("/", response_class=HTMLResponse)
 async def landing_page():
     return HTMLResponse(content=LANDING_PAGE)
+
+
+@app.get("/admin/usage")
+async def admin_usage():
+    """Usage stats. Already behind Basic Auth middleware when APP_USERNAME/PASSWORD set."""
+    return get_summary()
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

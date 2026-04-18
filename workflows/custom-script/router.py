@@ -22,6 +22,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from rate_limit import limiter, EXPENSIVE_LIMIT, MEDIUM_LIMIT
+from usage import log_event
 from pydantic import BaseModel
 
 FAL_KEY = os.getenv("FAL_KEY")
@@ -489,6 +490,8 @@ async def api_generate_video(request: Request, body: ScenesInput):
     with lock:
         pipeline_state["scenes"] = body.scenes
         pipeline_state["model"] = body.model
+    log_event(request, "custom_generate_video", model=body.model, scenes=len(body.scenes),
+              words=sum(len((s.get("narration") or "").split()) for s in body.scenes))
     thread = threading.Thread(target=run_pipeline, args=(body.scenes, body.model), daemon=True)
     thread.start()
     return {"status": "started", "total_scenes": len(body.scenes), "model": body.model}
@@ -509,6 +512,7 @@ async def api_retry(request: Request):
     if not scenes:
         raise HTTPException(400, "No scenes to retry — generate scenes first")
     model = pipeline_state.get("model", "v3.0")
+    log_event(request, "custom_retry", model=model, scenes=len(scenes), resume_from=resume_from)
     thread = threading.Thread(target=run_pipeline, args=(scenes, model, resume_from, processed), daemon=True)
     thread.start()
     return {"status": "resuming", "resume_from": resume_from + 1, "total_scenes": len(scenes)}
@@ -528,6 +532,8 @@ async def api_fix_scene(request: Request, body: FixSceneInput):
         raise HTTPException(400, "No completed video to fix — generate a video first")
     if body.scene_index < 0 or body.scene_index >= len(processed):
         raise HTTPException(400, f"Scene index {body.scene_index} out of range")
+    log_event(request, "custom_fix_scene", model=body.model, scene_index=body.scene_index,
+              total_scenes=len(processed))
     thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "fixing", "scene": body.scene_index + 1, "total_scenes": len(processed)}
@@ -545,6 +551,8 @@ async def api_fix_scenes(request: Request, body: BatchFixInput):
         processed = pipeline_state.get("processed", [])
     if not processed:
         raise HTTPException(400, "No completed video to fix")
+    log_event(request, "custom_fix_scenes", model=body.model, fix_count=len(body.fixes),
+              total_scenes=len(processed))
     thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "fixing", "fix_count": len(body.fixes)}
@@ -562,6 +570,8 @@ async def api_preview_scenes(request: Request, body: PreviewScenesInput):
         processed = pipeline_state.get("processed", [])
     if not processed:
         raise HTTPException(400, "No completed video to preview fixes for")
+    log_event(request, "custom_preview_scenes", model=body.model, fix_count=len(body.fixes),
+              total_scenes=len(processed))
     thread = threading.Thread(target=run_preview_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "previewing", "fix_count": len(body.fixes)}
@@ -576,6 +586,7 @@ async def api_approve_fixes(request: Request):
         processed = pipeline_state.get("processed", [])
     if not processed:
         raise HTTPException(400, "No scenes to render")
+    log_event(request, "custom_approve_fixes", total_scenes=len(processed))
     thread = threading.Thread(target=run_approve_fixes, args=(list(processed),), daemon=True)
     thread.start()
     return {"status": "rendering"}
