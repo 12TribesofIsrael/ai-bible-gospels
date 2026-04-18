@@ -77,9 +77,9 @@ def get_summary(recent_limit: int = 50) -> dict:
     """Stats for /admin/usage. Prefers Supabase when configured, JSON otherwise."""
     if db.is_enabled():
         summary = db.query_usage_summary(recent_limit=recent_limit)
-        if summary.get("total_events", 0) > 0 or summary.get("source") == "supabase":
+        if summary is not None:
             return summary
-        # DB is enabled but empty or failed — fall through to JSON as safety net.
+        # DB configured but unreachable — fall through to JSON.
 
     with _lock:
         log = _load()

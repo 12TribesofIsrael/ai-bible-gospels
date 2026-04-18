@@ -62,20 +62,22 @@ def insert_usage_event(ip: str, event: str, user_id: Optional[str] = None, **fie
         print(f"[db] insert_usage_event failed: {e}")
 
 
-def query_usage_summary(recent_limit: int = 50) -> dict:
-    """Return same dict shape as usage.get_summary(), sourced from Supabase."""
+def query_usage_summary(recent_limit: int = 50) -> Optional[dict]:
+    """Return same dict shape as usage.get_summary(), sourced from Supabase.
+
+    Returns None when the DB is unreachable or the query fails so callers
+    know to fall back to JSON. An empty-but-reachable DB returns a valid
+    dict with total_events=0 and source='supabase'.
+    """
     client = _get_client()
     if client is None:
-        return {"total_events": 0, "unique_ips": 0, "by_event": {}, "by_model": {}, "by_ip": {}, "recent": []}
+        return None
     try:
         resp = client.table("usage_events").select("*").order("created_at", desc=True).limit(5000).execute()
         rows = resp.data or []
     except Exception as e:
         print(f"[db] query_usage_summary failed: {e}")
-        return {"total_events": 0, "unique_ips": 0, "by_event": {}, "by_model": {}, "by_ip": {}, "recent": []}
-
-    if not rows:
-        return {"total_events": 0, "unique_ips": 0, "by_event": {}, "by_model": {}, "by_ip": {}, "recent": []}
+        return None
 
     by_event = Counter(r.get("event", "unknown") for r in rows)
     by_model = Counter(r["model"] for r in rows if r.get("model"))
