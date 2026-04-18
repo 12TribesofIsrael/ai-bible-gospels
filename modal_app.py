@@ -13,6 +13,7 @@ image = (
         "python-dotenv>=1.0.0",
         "requests>=2.31.0",
         "slowapi>=0.1.9",
+        "supabase>=2.8.0",
     )
     .add_local_dir(
         "workflows/biblical-cinematic/server",

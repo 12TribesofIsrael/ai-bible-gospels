@@ -45,12 +45,25 @@ Decided to skip BYOK — most real users won't have their own fal.ai/Anthropic a
 
 ## Phase 2: Foundation (half day each)
 
-### 4. Database (replace JSON files)
+### 4. Database (replace JSON files) ✓ (done 2026-04-18, partial)
 **Effort:** Medium | **Why:** JSON files don't scale, no queries, no concurrent access
-- Options: **Supabase** (free tier, Postgres, auth built in) or **Turso** (SQLite edge)
-- Tables: `users`, `renders`, `scenes`, `credits`
-- Migrate `render_history.json` and `pipeline_state.json` to DB
-- Supabase recommended — gives you auth + DB + realtime in one
+- ~~Options: **Supabase** (free tier, Postgres, auth built in) or **Turso** (SQLite edge)~~
+- ~~Tables: `users`, `renders`, `scenes`, `credits`~~
+- ~~Migrate `render_history.json` and `pipeline_state.json` to DB~~
+- ~~Supabase recommended — gives you auth + DB + realtime in one~~
+
+**Shipped:** Supabase wired as a parallel DB. JSON logging kept as fallback for safety.
+- Schema: `profiles`, `renders`, `usage_events` — see [docs/supabase_schema.sql](supabase_schema.sql)
+- New module [server/db.py](../workflows/biblical-cinematic/server/db.py) — Supabase client singleton, gated by `SUPABASE_URL` + `SUPABASE_SECRET_KEY`. App runs identically when unset (JSON-only).
+- [server/usage.py](../workflows/biblical-cinematic/server/usage.py) dual-writes every event to both JSON file and `usage_events` table.
+- `GET /admin/usage` reads from Supabase when configured, falls back to JSON.
+- Added `supabase>=2.8.0` to Modal image and `requirements.txt`.
+
+**Deferred to follow-up tasks:**
+- `renders` table writes — background threads lack `request` context; needs a small refactor
+- Migration of existing `usage_log.json` / `render_history.json` data — kept JSON files running in parallel
+- RLS policies — come with task #5 (auth)
+- Removing JSON logging — keep dual-write for one release cycle for safety
 
 ### 5. User Accounts & Authentication
 **Effort:** Medium | **Why:** Can't charge people without knowing who they are

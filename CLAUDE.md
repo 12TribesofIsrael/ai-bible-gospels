@@ -157,7 +157,9 @@ for item in items:
 | [workflows/biblical-cinematic/server/app.py](workflows/biblical-cinematic/server/app.py) | FastAPI server — `/api/clean`, `/api/render/*` (Step 4), `/api/upload/*` (Step 5), mounts v9 router at `/v9` + custom router at `/custom` |
 | [workflows/biblical-cinematic/server/biblical_pipeline.py](workflows/biblical-cinematic/server/biblical_pipeline.py) | v12 pipeline router — `/v9/api/generate-scenes`, `/v9/api/generate-video`, `/v9/api/status`, `/v9/api/retry`, `/v9/api/fix-scene`, `/v9/api/fix-scenes`, `/v9/api/stop`, `/v9/api/history` (no n8n) |
 | [workflows/biblical-cinematic/server/rate_limit.py](workflows/biblical-cinematic/server/rate_limit.py) | Shared `slowapi` Limiter — 5/hour on render endpoints, 30/hour on Claude-only endpoints. IP from `X-Forwarded-For` (Modal proxy). Imported by app.py, biblical_pipeline.py, custom-script/router.py |
-| [workflows/biblical-cinematic/server/usage.py](workflows/biblical-cinematic/server/usage.py) | Usage tracking — one JSON event per money-spending API hit, written to `/data/usage_log.json` on Modal Volume. Read via `GET /admin/usage` (behind Basic Auth). |
+| [workflows/biblical-cinematic/server/usage.py](workflows/biblical-cinematic/server/usage.py) | Usage tracking — one event per money-spending API hit. Dual-writes to `/data/usage_log.json` (fallback) and Supabase `usage_events` table. Read via `GET /admin/usage`. |
+| [workflows/biblical-cinematic/server/db.py](workflows/biblical-cinematic/server/db.py) | Supabase client singleton + helpers. Gated by `SUPABASE_URL` + `SUPABASE_SECRET_KEY` — if either is missing, `is_enabled()` returns False and all DB calls become no-ops so the app runs identically to pre-Supabase state. Never raises. |
+| [docs/supabase_schema.sql](docs/supabase_schema.sql) | Idempotent SQL for initial schema — `profiles`, `renders`, `usage_events`. Paste into Supabase SQL Editor once per project. |
 | [workflows/biblical-cinematic/server/requirements.txt](workflows/biblical-cinematic/server/requirements.txt) | Server dependencies |
 | [workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py](workflows/biblical-cinematic/text_processor/biblical_text_processor_v2.py) | KJV text cleaner/splitter (imported by server) |
 | [workflows/biblical-cinematic/n8n/v7.2-production.json](workflows/biblical-cinematic/n8n/v7.2-production.json) | **Current production workflow** — Import into n8n (v7.2: field-name-anchored JSON extraction, proven stable) |
@@ -335,6 +337,10 @@ See [.env.example](.env.example) for all keys. The `.env` file lives at the work
 | `ANTHROPIC_API_KEY` | Custom Script pipeline — Claude AI scene generation |
 | `APP_USERNAME` | Modal deployment — Basic Auth username (optional, local dev skips auth) |
 | `APP_PASSWORD` | Modal deployment — Basic Auth password (optional, local dev skips auth) |
+| `SUPABASE_URL` | Supabase project URL — `db.py` uses this + `SUPABASE_SECRET_KEY` to init the client. If unset, app falls back to JSON-only logging. |
+| `SUPABASE_SECRET_KEY` | Supabase server-side key (`sb_secret_...`). Required for DB writes. Never ship to browser. |
+| `SUPABASE_PUBLISHABLE_KEY` | Supabase client-side key (`sb_publishable_...`). Used later for browser auth UI. |
+| `SUPABASE_DB_URL` | Direct Postgres connection string. Only used for admin/migration scripts, not the app. |
 
 The biblical server uses `find_dotenv()` to locate `.env` by walking up the directory tree from `server/app.py`.
 
@@ -354,7 +360,7 @@ modal deploy modal_app.py
 ```
 
 ### Setup
-1. Create a Modal secret named `ai-bible-gospels` with: `FAL_KEY`, `JSON2VIDEO_API_KEY`, `ANTHROPIC_API_KEY`, `APP_USERNAME`, `APP_PASSWORD`
+1. Create a Modal secret named `ai-bible-gospels` with: `FAL_KEY`, `JSON2VIDEO_API_KEY`, `ANTHROPIC_API_KEY`, `APP_USERNAME`, `APP_PASSWORD`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`
 2. Run `modal deploy modal_app.py`
 
 ### Key Files
