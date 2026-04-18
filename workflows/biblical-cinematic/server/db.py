@@ -19,6 +19,12 @@ def is_enabled() -> bool:
     return bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SECRET_KEY"))
 
 
+# One-shot startup diagnostic — shows up in Modal logs once per container boot
+print(f"[db] startup check — SUPABASE_URL set={bool(os.getenv('SUPABASE_URL'))}, "
+      f"SUPABASE_SECRET_KEY set={bool(os.getenv('SUPABASE_SECRET_KEY'))}, "
+      f"is_enabled={is_enabled()}")
+
+
 def _get_client():
     """Lazy-init singleton. Returns None if not configured or import fails."""
     global _client, _client_init_tried
