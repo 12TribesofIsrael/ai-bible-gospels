@@ -19,10 +19,7 @@ def is_enabled() -> bool:
     return bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SECRET_KEY"))
 
 
-# One-shot startup diagnostic — shows up in Modal logs once per container boot
-print(f"[db] startup check — SUPABASE_URL set={bool(os.getenv('SUPABASE_URL'))}, "
-      f"SUPABASE_SECRET_KEY set={bool(os.getenv('SUPABASE_SECRET_KEY'))}, "
-      f"is_enabled={is_enabled()}")
+print(f"[db] is_enabled={is_enabled()}")
 
 
 def _get_client():
@@ -35,9 +32,6 @@ def _get_client():
     _client_init_tried = True
 
     if not is_enabled():
-        url_set = bool(os.getenv("SUPABASE_URL"))
-        key_set = bool(os.getenv("SUPABASE_SECRET_KEY"))
-        print(f"[db] Not enabled — SUPABASE_URL set={url_set}, SUPABASE_SECRET_KEY set={key_set}")
         return None
 
     try:
@@ -46,7 +40,6 @@ def _get_client():
             os.environ["SUPABASE_URL"],
             os.environ["SUPABASE_SECRET_KEY"],
         )
-        print(f"[db] Supabase client initialized (url={os.environ['SUPABASE_URL']})")
         return _client
     except Exception as e:
         print(f"[db] Supabase init failed: {e}")
