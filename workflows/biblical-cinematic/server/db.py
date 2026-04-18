@@ -25,10 +25,13 @@ def _get_client():
     if _client is not None:
         return _client
     if _client_init_tried:
-        return None  # already tried and failed — don't spam
+        return None
     _client_init_tried = True
 
     if not is_enabled():
+        url_set = bool(os.getenv("SUPABASE_URL"))
+        key_set = bool(os.getenv("SUPABASE_SECRET_KEY"))
+        print(f"[db] Not enabled — SUPABASE_URL set={url_set}, SUPABASE_SECRET_KEY set={key_set}")
         return None
 
     try:
@@ -37,6 +40,7 @@ def _get_client():
             os.environ["SUPABASE_URL"],
             os.environ["SUPABASE_SECRET_KEY"],
         )
+        print(f"[db] Supabase client initialized (url={os.environ['SUPABASE_URL']})")
         return _client
     except Exception as e:
         print(f"[db] Supabase init failed: {e}")
