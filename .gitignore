@@ -34,3 +34,12 @@ workflows/biblical-cinematic/scripts/.youtube_token.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Scratch files from chapter renders / recoveries (root-level only)
+/ch*_chunks.json
+/ch*_processed.json
+/ch*_recovered_urls.json
+/retry_payload.json
+/retry_part*.json
+/macc*.txt
+/package-lock.json
