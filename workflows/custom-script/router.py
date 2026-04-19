@@ -44,7 +44,15 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
 VOICE_SPEED = 0.9
 
-HISTORY_FILE = Path(__file__).parent / "custom_render_history.json"
+# Persistent history — survives Modal redeploys via /data volume (mirrors biblical_pipeline).
+_CUSTOM_HISTORY_DIR = Path("/data") if Path("/data").exists() else Path(__file__).parent
+HISTORY_FILE = _CUSTOM_HISTORY_DIR / "custom_render_history.json"
+_LEGACY_CUSTOM_HISTORY = Path(__file__).parent / "custom_render_history.json"
+if not HISTORY_FILE.exists() and _LEGACY_CUSTOM_HISTORY.exists() and HISTORY_FILE != _LEGACY_CUSTOM_HISTORY:
+    try:
+        HISTORY_FILE.write_text(_LEGACY_CUSTOM_HISTORY.read_text(encoding="utf-8"), encoding="utf-8")
+    except Exception as e:
+        print(f"[history] Failed to seed custom history: {e}")
 
 # ---------------------------------------------------------------------------
 # Shared pipeline state

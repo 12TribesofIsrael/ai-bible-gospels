@@ -60,11 +60,18 @@ MAX_WORDS_PER_RENDER = 900
 # At ~135 effective WPM: 10s clip = ~22 words, 15s clip = ~34 words
 WORDS_PER_SCENE = {"v1.6": 22, "v2.1": 22, "v3.0": 34, "v3.0-pro": 34, "o3": 34, "o3-pro": 34}
 
-HISTORY_FILE = Path(__file__).parent / "render_history.json"
-
-# Persistent state file — survives container restarts on Modal (uses /data volume)
+# Persistent state + history files — survive container restarts and redeploys on Modal (uses /data volume).
+# Without /data, these lived inside the code mount and got wiped on every deploy.
 STATE_DIR = Path("/data") if Path("/data").exists() else Path(__file__).parent
 STATE_FILE = STATE_DIR / "pipeline_state.json"
+HISTORY_FILE = STATE_DIR / "render_history.json"
+_LEGACY_HISTORY = Path(__file__).parent / "render_history.json"
+if not HISTORY_FILE.exists() and _LEGACY_HISTORY.exists():
+    # One-time migration: seed the persistent history from the committed file on first run.
+    try:
+        HISTORY_FILE.write_text(_LEGACY_HISTORY.read_text(encoding="utf-8"), encoding="utf-8")
+    except Exception as e:
+        print(f"[history] Failed to seed from legacy file: {e}")
 
 # ---------------------------------------------------------------------------
 # Shared pipeline state
