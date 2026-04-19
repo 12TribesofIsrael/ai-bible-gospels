@@ -78,11 +78,13 @@ stop_requested = threading.Event()
 
 
 def is_stop_requested() -> bool:
-    return is_stop_requested() or STOP_FILE.exists()
+    # Call via the class so the textual form doesn't match a future
+    # replace-all of "stop_requested.is_set()" (which is what broke this originally).
+    return threading.Event.is_set(stop_requested) or STOP_FILE.exists()
 
 
 def request_stop() -> None:
-    stop_requested.set()
+    threading.Event.set(stop_requested)
     try:
         STOP_FILE.write_text("1")
     except Exception as e:
@@ -90,7 +92,7 @@ def request_stop() -> None:
 
 
 def clear_stop() -> None:
-    clear_stop()
+    threading.Event.clear(stop_requested)
     try:
         STOP_FILE.unlink(missing_ok=True)
     except Exception as e:
