@@ -5,6 +5,31 @@ Archive this file when the app reaches full production.
 
 ---
 
+## [2026-04-19] Stop button does nothing on Modal + pipeline freezes silently
+
+**Symptom:** User clicks **Stop Rendering** mid-render on the deployed Modal app. API responds `{"status": "stop_requested"}` but the pipeline keeps running. Later the render pauses/errors on its own. After the container scales down, `/api/status` returns `phase=idle, scenes=null, processed=[]` — all in-memory pipeline state is gone even though 3 of 6 Kling clips were already paid for.
+
+**Root cause (two layers):**
+
+1. **Stop flag was process-local.** Both `biblical_pipeline.py` and `custom-script/router.py` declared `stop_requested = threading.Event()` at module level. On Modal, the web app can run in multiple containers under concurrent load. When `/api/stop` load-balances to a container that isn't the one running the worker thread, setting the Event in container A has zero effect on the worker in container B. Same failure mode as the multi-container `pipeline_state` issue — in-memory state doesn't cross Modal container boundaries.
+2. **Custom-script pipeline doesn't persist state.** Biblical pipeline persists `pipeline_state` to `/data/pipeline_state.json` and survives restarts. Custom-script only keeps state in RAM. When the container scaled down after 5 min idle, everything — the 6 scenes, the 3 completed Kling URLs, the fix panel state — was lost. Recovery required pulling video URLs from fal.ai's history API.
+
+**Fix:**
+- Added disk-backed stop flags on the shared `/data` volume: `biblical_stop.flag` and `custom_stop.flag`.
+- Added `is_stop_requested()` / `request_stop()` / `clear_stop()` helpers in both files. `is_stop_requested()` returns `stop_requested.is_set() or STOP_FILE.exists()` — the Event stays for fast-path single-container checks, the file covers multi-container.
+- `/api/stop` now calls `request_stop()` which writes to `/data/<kind>_stop.flag`. The flag is visible to every container because the Volume is mounted everywhere.
+- All in-pipeline stop checks (`stop_requested.is_set()` call sites inside FLUX/Kling poll loops and between scenes) now call `is_stop_requested()`.
+- `clear_stop()` at module init purges stale flags left by crashed/killed containers.
+
+**What this does NOT fix (deliberate, out of scope):**
+- Concurrency: two users rendering simultaneously still collide on the global `pipeline_state` dict. That's the multi-tenant refactor deferred to the SaaS roadmap.
+- Already-submitted fal.ai / JSON2Video jobs continue on the vendor side even after local stop — those credits are spent. Cancellation would require hitting each vendor's cancel API per pending request.
+- Custom-script pipeline still doesn't persist to `/data` between container restarts. Added a one-shot recovery script instead: `workflows/custom-script/recover_run.py` reads a scenes JSON (exported from the browser's `currentScenes` JS variable), pulls the most-recent N successful Kling clips from fal.ai history, regenerates the rest, and submits to JSON2Video.
+
+**Files changed:** `workflows/biblical-cinematic/server/biblical_pipeline.py`, `workflows/custom-script/router.py`, `workflows/custom-script/recover_run.py` (new).
+
+---
+
 ## [2026-03-11] JSON2Video error: "Voice generation failed: No text provided" on Scene 20
 
 **Symptom:** JSON2Video render fails with error: `Scene #20, element #2: Voice generation failed: No text provided`. Video consumed 130 credits but produced no output.

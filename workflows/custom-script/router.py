@@ -47,6 +47,9 @@ VOICE_SPEED = 0.9
 # Persistent history — survives Modal redeploys via /data volume (mirrors biblical_pipeline).
 _CUSTOM_HISTORY_DIR = Path("/data") if Path("/data").exists() else Path(__file__).parent
 HISTORY_FILE = _CUSTOM_HISTORY_DIR / "custom_render_history.json"
+# Disk-backed stop flag — shared across Modal web containers via /data volume.
+# Fixes the case where /api/stop lands on a different container than the worker.
+STOP_FILE = _CUSTOM_HISTORY_DIR / "custom_stop.flag"
 _LEGACY_CUSTOM_HISTORY = Path(__file__).parent / "custom_render_history.json"
 if not HISTORY_FILE.exists() and _LEGACY_CUSTOM_HISTORY.exists() and HISTORY_FILE != _LEGACY_CUSTOM_HISTORY:
     try:
@@ -72,6 +75,30 @@ pipeline_state = {
 
 lock = threading.Lock()
 stop_requested = threading.Event()
+
+
+def is_stop_requested() -> bool:
+    return is_stop_requested() or STOP_FILE.exists()
+
+
+def request_stop() -> None:
+    stop_requested.set()
+    try:
+        STOP_FILE.write_text("1")
+    except Exception as e:
+        print(f"[stop] Failed to write flag: {e}")
+
+
+def clear_stop() -> None:
+    clear_stop()
+    try:
+        STOP_FILE.unlink(missing_ok=True)
+    except Exception as e:
+        print(f"[stop] Failed to clear flag: {e}")
+
+
+# Clear any stale stop flag left behind by a crashed/killed container.
+clear_stop()
 
 SCENE_GENERATION_PROMPT = """You are a cinematic video production expert for AI Bible Gospels — a channel revealing the hidden identity of the 12 Tribes of Israel through Scripture, history, and prophecy.
 
@@ -190,7 +217,7 @@ def fal_queue_submit(sync_url, payload, kind=None, poll_seconds=10, max_wait_sec
 
     deadline = time.time() + max_wait_seconds
     while time.time() < deadline:
-        if stop_requested.is_set():
+        if is_stop_requested():
             raise RuntimeError("Stopped by user")
         time.sleep(poll_seconds)
         err = None
@@ -262,7 +289,7 @@ def submit_and_poll_json2video(payload):
     resp.raise_for_status()
     project_id = resp.json().get("project") or resp.json().get("id")
     while True:
-        if stop_requested.is_set():
+        if is_stop_requested():
             raise RuntimeError("Stopped by user")
         time.sleep(10)
         resp = requests.get(JSON2VIDEO_URL, headers={"x-api-key": JSON2VIDEO_API_KEY}, params={"project": project_id}, timeout=30)
@@ -309,7 +336,7 @@ def save_to_history(scenes, video_url, scene_count):
 def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None):
     global pipeline_state
     try:
-        stop_requested.clear()
+        clear_stop()
         total = len(scenes)
         processed = list(existing_processed) if existing_processed else []
         with lock:
@@ -318,7 +345,7 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None):
         for i, scene in enumerate(scenes, 1):
             if i <= resume_from:
                 continue
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after scene {i-1}/{total}. Completed scenes preserved.")
                 return
@@ -326,7 +353,7 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None):
                 pipeline_state["current_scene"] = i
                 pipeline_state["message"] = f"Scene {i}/{total} — Generating FLUX image..."
             image_url = generate_image(scene)
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after scene {i-1}/{total}. Completed scenes preserved.")
                 return
@@ -358,7 +385,7 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None):
 def run_fix_scene(scene_index, scene, processed, model="v3.0"):
     global pipeline_state
     try:
-        stop_requested.clear()
+        clear_stop()
         total = len(processed)
         idx = scene_index + 1
         with lock:
@@ -388,14 +415,14 @@ def run_fix_scenes(fixes, processed, model="v3.0"):
     """Batch fix: regenerate FLUX + Kling for multiple scenes, then ONE JSON2Video render."""
     global pipeline_state
     try:
-        stop_requested.clear()
+        clear_stop()
         total_fixes = len(fixes)
         total_scenes = len(processed)
         with lock:
             pipeline_state.update(phase="generating_media", current_scene=0, total_scenes=total_fixes,
                                   message=f"Batch fixing {total_fixes} scenes...", error=None, video_url=None)
         for fi, fix in enumerate(fixes):
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after fixing {fi}/{total_fixes} scenes.")
                 return
@@ -407,7 +434,7 @@ def run_fix_scenes(fixes, processed, model="v3.0"):
                 if pipeline_state["scenes"]:
                     pipeline_state["scenes"][idx].update(scene)
             image_url = generate_image(scene)
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after fixing {fi}/{total_fixes} scenes.")
                 return
@@ -438,13 +465,13 @@ def run_preview_scenes(fixes, processed, model="v3.0"):
     """Preview: regenerate FLUX + Kling for selected scenes, NO JSON2Video render."""
     global pipeline_state
     try:
-        stop_requested.clear()
+        clear_stop()
         total_fixes = len(fixes)
         with lock:
             pipeline_state.update(phase="previewing", current_scene=0, total_scenes=total_fixes,
                                   message=f"Previewing {total_fixes} scenes...", error=None, video_url=None, previews={})
         for fi, fix in enumerate(fixes):
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after previewing {fi}/{total_fixes} scenes.")
                 return
@@ -456,7 +483,7 @@ def run_preview_scenes(fixes, processed, model="v3.0"):
                 if pipeline_state["scenes"]:
                     pipeline_state["scenes"][idx].update(scene)
             image_url = generate_image(scene)
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after previewing {fi}/{total_fixes} scenes.")
                 return
@@ -485,7 +512,7 @@ def run_approve_fixes(processed):
     """After preview approval, submit ONE JSON2Video render with all updated scenes."""
     global pipeline_state
     try:
-        stop_requested.clear()
+        clear_stop()
         total = len(processed)
         with lock:
             pipeline_state.update(phase="rendering", message="Submitting approved scenes to JSON2Video...", error=None, video_url=None)
@@ -643,7 +670,7 @@ async def api_approve_fixes(request: Request):
 
 @custom_router.post("/api/stop")
 async def api_stop():
-    stop_requested.set()
+    request_stop()
     with lock:
         phase = pipeline_state["phase"]
     if phase in ("generating_media", "rendering", "previewing"):

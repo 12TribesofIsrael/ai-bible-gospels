@@ -65,6 +65,9 @@ WORDS_PER_SCENE = {"v1.6": 22, "v2.1": 22, "v3.0": 34, "v3.0-pro": 34, "o3": 34,
 STATE_DIR = Path("/data") if Path("/data").exists() else Path(__file__).parent
 STATE_FILE = STATE_DIR / "pipeline_state.json"
 HISTORY_FILE = STATE_DIR / "render_history.json"
+# Disk-backed stop flag — shared across Modal web containers via /data volume.
+# Fixes the case where /api/stop lands on a different container than the worker.
+STOP_FILE = STATE_DIR / "biblical_stop.flag"
 _LEGACY_HISTORY = Path(__file__).parent / "render_history.json"
 if not HISTORY_FILE.exists() and _LEGACY_HISTORY.exists():
     # One-time migration: seed the persistent history from the committed file on first run.
@@ -99,6 +102,26 @@ lock = threading.Lock()
 stop_requested = threading.Event()
 
 
+def is_stop_requested() -> bool:
+    return is_stop_requested() or STOP_FILE.exists()
+
+
+def request_stop() -> None:
+    stop_requested.set()
+    try:
+        STOP_FILE.write_text("1")
+    except Exception as e:
+        print(f"[stop] Failed to write flag: {e}")
+
+
+def clear_stop() -> None:
+    clear_stop()
+    try:
+        STOP_FILE.unlink(missing_ok=True)
+    except Exception as e:
+        print(f"[stop] Failed to clear flag: {e}")
+
+
 def save_state():
     """Persist pipeline state to disk so it survives container restarts."""
     try:
@@ -131,6 +154,8 @@ def load_state():
 
 # Restore state on module load
 load_state()
+# Clear any stale stop flag left behind by a crashed/killed container.
+clear_stop()
 
 # ---------------------------------------------------------------------------
 # Claude prompt — image prompts only (narration is word-for-word scripture)
@@ -362,7 +387,7 @@ def fal_queue_submit(sync_url, payload, kind, poll_seconds=10, max_wait_seconds=
 
     deadline = time.time() + max_wait_seconds
     while time.time() < deadline:
-        if stop_requested.is_set():
+        if is_stop_requested():
             raise RuntimeError("Stopped by user")
         time.sleep(poll_seconds)
         err = None
@@ -483,7 +508,7 @@ def save_to_history(status="done"):
 def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
     global pipeline_state
     try:
-        stop_requested.clear()
+        clear_stop()
         total = len(scenes)
         processed = list(existing_processed) if existing_processed else []
         is_fresh_run = resume_from == 0 and not processed
@@ -497,7 +522,7 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
         for i, scene in enumerate(scenes, 1):
             if i <= resume_from:
                 continue
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message="Stopped by user", processed=list(processed))
                     save_state()
@@ -506,7 +531,7 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
                 pipeline_state["current_scene"] = i
                 pipeline_state["message"] = f"Scene {i}/{total} — Generating FLUX image..."
             image_url = generate_image(scene)
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message="Stopped by user", processed=list(processed))
                     save_state()
@@ -588,14 +613,14 @@ def run_fix_scenes(fixes, processed, model="v1.6"):
     """Batch-fix multiple scenes: regenerate FLUX + Kling for each, then ONE JSON2Video render."""
     global pipeline_state
     try:
-        stop_requested.clear()
+        clear_stop()
         total_fixes = len(fixes)
         total = len(processed)
         with lock:
             pipeline_state.update(phase="generating_media", current_scene=0, total_scenes=total,
                                   message=f"Batch fixing {total_fixes} scenes...", error=None, video_url=None)
         for fix_num, fix in enumerate(fixes, 1):
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message="Stopped by user", processed=list(processed))
                 return
@@ -605,7 +630,7 @@ def run_fix_scenes(fixes, processed, model="v1.6"):
                 pipeline_state["current_scene"] = idx + 1
                 pipeline_state["message"] = f"Fixing scene {fix_num} of {total_fixes} selected — Generating FLUX image..."
             image_url = generate_image(scene)
-            if stop_requested.is_set():
+            if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message="Stopped by user", processed=list(processed))
                 return
@@ -828,7 +853,7 @@ async def api_history_detail(render_id: str):
 async def api_stop():
     if pipeline_state["phase"] not in ("generating_media", "generating_scenes", "rendering"):
         raise HTTPException(400, "No active pipeline to stop")
-    stop_requested.set()
+    request_stop()
     return {"status": "stop_requested"}
 
 

@@ -44,3 +44,7 @@ Thumbs.db
 /macc*.txt
 /package-lock.json
 /backup_*_state_*.json
+
+# Custom-script recovery scratch (user-specific inputs + one-shot outputs)
+workflows/custom-script/recovery_scenes.json
+workflows/custom-script/recovered_payload.json

@@ -309,6 +309,7 @@ python workflows/custom-script/recover.py  # recovers completed videos from fal.
 | [workflows/custom-script/server.py](workflows/custom-script/server.py) | Standalone FastAPI web UI (legacy, port 8500) — use the unified server instead |
 | [workflows/custom-script/generate.py](workflows/custom-script/generate.py) | CLI pipeline — script → Claude scenes → FLUX → Kling → JSON2Video |
 | [workflows/custom-script/recover.py](workflows/custom-script/recover.py) | Recovery — fetches completed Kling videos from fal.ai history API, regenerates only missing scenes |
+| [workflows/custom-script/recover_run.py](workflows/custom-script/recover_run.py) | One-shot recovery for a **frozen render on Modal** — use when the container scaled down and in-memory state is gone. Takes a user-supplied `recovery_scenes.json` (export `currentScenes` from the browser console via `copy(JSON.stringify({scenes: currentScenes}, null, 2))`), pulls N most-recent v3 standard successes from fal.ai history, generates the remaining scenes, submits to JSON2Video. Usage: `python recover_run.py --scenes recovery_scenes.json --recovered 3` |
 | [workflows/custom-script/example-trailer.txt](workflows/custom-script/example-trailer.txt) | Example input — channel trailer script |
 | [workflows/custom-script/README.md](workflows/custom-script/README.md) | Complete usage guide |
 
