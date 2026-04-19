@@ -163,26 +163,67 @@ def fal_headers():
 NEGATIVE_PROMPT = "cartoon, anime, illustration, painting, drawing, digital art, concept art, stylized, 3D render, CGI, plastic skin, smooth skin, airbrushed, watercolor, sketch, unrealistic, low quality, blurry"
 
 
+def fal_queue_submit(sync_url, payload, kind=None, poll_seconds=10, max_wait_seconds=1800):
+    """Submit to fal.ai's async queue endpoint and poll until completion.
+
+    Avoids the duplicate-charge trap of the sync endpoint: long-running models like
+    Kling O3 Pro can exceed any Python client timeout; fal.ai still completes and
+    bills the request, so the retry path pays twice. The queue endpoint returns
+    immediately, and each poll is a short GET that never times out under load.
+    """
+    queue_url = sync_url.replace("https://fal.run/", "https://queue.fal.run/", 1)
+    submit = requests.post(queue_url, headers=fal_headers(), json=payload, timeout=60)
+    submit.raise_for_status()
+    job = submit.json()
+    status_url = job.get("status_url")
+    response_url = job.get("response_url")
+    if not status_url or not response_url:
+        raise RuntimeError(f"fal.ai queue missing status/response url: {job}")
+
+    deadline = time.time() + max_wait_seconds
+    while time.time() < deadline:
+        if stop_requested.is_set():
+            raise RuntimeError("Stopped by user")
+        time.sleep(poll_seconds)
+        err = None
+        for _ in range(3):
+            try:
+                s = requests.get(status_url, headers=fal_headers(), timeout=30)
+                s.raise_for_status()
+                err = None
+                break
+            except Exception as e:
+                err = e
+                time.sleep(2)
+        if err:
+            continue
+        status = s.json().get("status")
+        if status == "COMPLETED":
+            r = requests.get(response_url, headers=fal_headers(), timeout=60)
+            r.raise_for_status()
+            return r.json()
+        if status in ("FAILED", "ERROR", "CANCELLED"):
+            raise RuntimeError(f"fal.ai queue status={status}: {s.json()}")
+    raise RuntimeError(f"fal.ai queue timed out after {max_wait_seconds}s (request_id={job.get('request_id')})")
+
+
 def generate_image(scene):
     prompt = scene["imagePrompt"]
     if scene.get("lighting"):
         prompt += f", {scene['lighting']}"
-    resp = requests.post(FLUX_URL, headers=fal_headers(), json={
+    data = fal_queue_submit(FLUX_URL, {
         "prompt": prompt, "negative_prompt": NEGATIVE_PROMPT,
         "image_size": "landscape_16_9", "num_inference_steps": 28, "num_images": 1,
-    }, timeout=120)
-    resp.raise_for_status()
-    return resp.json()["images"][0]["url"]
+    }, kind="flux", poll_seconds=5, max_wait_seconds=300)
+    return data["images"][0]["url"]
 
 
 def generate_video(image_url, scene, model="v3.0"):
     kling = KLING_MODELS.get(model, KLING_MODELS["v3.0"])
-    resp = requests.post(kling["url"], headers=fal_headers(), json={
+    data = fal_queue_submit(kling["url"], {
         "image_url": image_url, "prompt": scene.get("motion", "Slow cinematic camera movement"),
         "duration": kling["duration"], "cfg_scale": 0.5,
-    }, timeout=600)
-    resp.raise_for_status()
-    data = resp.json()
+    }, kind="kling", poll_seconds=10, max_wait_seconds=1800)
     return data.get("video", {}).get("url") or data["data"]["video"]["url"]
 
 
@@ -720,21 +761,21 @@ Example: A channel trailer about the 12 Tribes of Israel, their scattering, and 
             <input type="radio" name="custom-kling-model" value="v3.0" class="peer sr-only" checked>
             <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
               <div class="text-xs font-semibold text-white">v3.0 Standard</div>
-              <div class="text-xs text-amber-400 mt-1">$0.084/sec</div>
+              <div class="text-xs text-amber-400 mt-1">~$27/video</div>
             </div>
           </label>
           <label class="relative cursor-pointer">
             <input type="radio" name="custom-kling-model" value="v3.0-pro" class="peer sr-only">
             <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
               <div class="text-xs font-semibold text-white">v3.0 Pro</div>
-              <div class="text-xs text-amber-400 mt-1">$0.112/sec</div>
+              <div class="text-xs text-amber-400 mt-1">~$35/video</div>
             </div>
           </label>
           <label class="relative cursor-pointer">
             <input type="radio" name="custom-kling-model" value="o3" class="peer sr-only">
             <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-purple-500 peer-checked:bg-purple-500/10 transition-all">
               <div class="text-xs font-semibold text-white">O3 Standard</div>
-              <div class="text-xs text-purple-400 mt-1">$0.168/sec</div>
+              <div class="text-xs text-purple-400 mt-1">~$45/video</div>
             </div>
           </label>
         </div>

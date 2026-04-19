@@ -43,3 +43,4 @@ Thumbs.db
 /retry_part*.json
 /macc*.txt
 /package-lock.json
+/backup_*_state_*.json

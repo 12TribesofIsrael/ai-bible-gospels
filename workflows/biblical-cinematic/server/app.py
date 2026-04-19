@@ -791,7 +791,7 @@ LANDING_PAGE = """<!DOCTYPE html>
           class="text-xs text-purple-400 hover:text-purple-300 border border-purple-800 hover:border-purple-600 px-3 py-1.5 rounded-lg transition-colors">
           ▼ Post-Production
         </a>
-        <span class="text-xs text-gray-600">v8.0 · ~$7.31/video</span>
+        <span class="text-xs text-gray-600">v12 · AI Bible Gospels</span>
       </div>
     </div>
   </nav>
@@ -916,7 +916,7 @@ LANDING_PAGE = """<!DOCTYPE html>
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">v1.6 Standard</div>
                 <div class="text-xs text-gray-400 mt-1">Basic motion · Fastest</div>
-                <div class="text-xs text-amber-400 mt-1 font-medium">$0.035/sec</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">~$10/chapter</div>
               </div>
             </label>
             <label class="relative cursor-pointer">
@@ -924,7 +924,7 @@ LANDING_PAGE = """<!DOCTYPE html>
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">v2.1 Standard</div>
                 <div class="text-xs text-gray-400 mt-1">Better motion · Mid-tier</div>
-                <div class="text-xs text-amber-400 mt-1 font-medium">$0.035/sec</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">~$10/chapter</div>
               </div>
             </label>
             <label class="relative cursor-pointer">
@@ -932,7 +932,7 @@ LANDING_PAGE = """<!DOCTYPE html>
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">v3.0 Standard</div>
                 <div class="text-xs text-gray-400 mt-1">Best value · 15s clips</div>
-                <div class="text-xs text-amber-400 mt-1 font-medium">$0.084/sec</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">~$27/chapter</div>
               </div>
             </label>
             <label class="relative cursor-pointer">
@@ -940,7 +940,7 @@ LANDING_PAGE = """<!DOCTYPE html>
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">v3.0 Pro</div>
                 <div class="text-xs text-gray-400 mt-1">Higher quality · 15s clips</div>
-                <div class="text-xs text-amber-400 mt-1 font-medium">$0.112/sec</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">~$35/chapter</div>
               </div>
             </label>
             <label class="relative cursor-pointer">
@@ -948,7 +948,7 @@ LANDING_PAGE = """<!DOCTYPE html>
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-purple-500 peer-checked:bg-purple-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">O3 Standard</div>
                 <div class="text-xs text-gray-400 mt-1">Character consistency</div>
-                <div class="text-xs text-purple-400 mt-1 font-medium">$0.168/sec</div>
+                <div class="text-xs text-purple-400 mt-1 font-medium">~$45/chapter</div>
               </div>
             </label>
             <label class="relative cursor-pointer">
@@ -956,7 +956,7 @@ LANDING_PAGE = """<!DOCTYPE html>
               <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-purple-500 peer-checked:bg-purple-500/10 transition-all">
                 <div class="text-sm font-semibold text-white">O3 Pro</div>
                 <div class="text-xs text-gray-400 mt-1">Best consistency · Premium</div>
-                <div class="text-xs text-purple-400 mt-1 font-medium">$0.224/sec</div>
+                <div class="text-xs text-purple-400 mt-1 font-medium">~$60/chapter</div>
               </div>
             </label>
           </div>
@@ -1453,6 +1453,7 @@ LANDING_PAGE = """<!DOCTYPE html>
     async function retryV9() {
       document.getElementById('v9-error-panel').classList.add('hidden');
       document.getElementById('video-ready-panel').classList.add('hidden');
+      document.getElementById('v9-stop-panel').classList.remove('hidden');
       try {
         const res = await fetch('/v9/api/retry', {method: 'POST', headers: {'Content-Type': 'application/json'}});
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }

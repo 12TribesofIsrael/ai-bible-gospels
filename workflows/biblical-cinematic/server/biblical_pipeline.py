@@ -82,6 +82,10 @@ pipeline_state = {
     "book": "",
     "chapter": "",
     "model": "v1.6",
+    # Pending fal.ai queue request persisted across container restarts — prevents
+    # duplicate-charge ghosts when a long-running Kling clip is interrupted mid-poll.
+    # {"kind": "flux"|"kling", "queue_url": str, "status_url": str, "response_url": str, "request_id": str}
+    "pending_fal": None,
 }
 
 lock = threading.Lock()
@@ -314,26 +318,92 @@ def fal_headers():
 NEGATIVE_PROMPT = "cartoon, anime, illustration, painting, drawing, digital art, concept art, stylized, 3D render, CGI, plastic skin, smooth skin, airbrushed, watercolor, sketch, unrealistic, low quality, blurry"
 
 
+def fal_queue_submit(sync_url, payload, kind, poll_seconds=10, max_wait_seconds=1800):
+    """Submit to fal.ai's async queue endpoint and poll until completion.
+
+    Avoids the duplicate-charge trap of the sync endpoint: long-running models like
+    Kling O3 Pro can exceed any Python client timeout; fal.ai still completes and
+    bills the request, so the retry path pays twice. The queue endpoint returns
+    immediately, and each poll is a short GET that never times out under load.
+
+    Persists the in-flight request to pipeline_state.pending_fal so a container
+    restart mid-poll can resume the same request on next run instead of paying
+    fal.ai twice for the same clip.
+    """
+    queue_url = sync_url.replace("https://fal.run/", "https://queue.fal.run/", 1)
+
+    pending = pipeline_state.get("pending_fal") or {}
+    if pending.get("kind") == kind and pending.get("queue_url") == queue_url:
+        status_url = pending["status_url"]
+        response_url = pending["response_url"]
+        print(f"[fal] Resuming pending {kind} request {pending.get('request_id')}")
+    else:
+        submit = requests.post(queue_url, headers=fal_headers(), json=payload, timeout=60)
+        submit.raise_for_status()
+        job = submit.json()
+        status_url = job.get("status_url")
+        response_url = job.get("response_url")
+        if not status_url or not response_url:
+            raise RuntimeError(f"fal.ai queue missing status/response url: {job}")
+        with lock:
+            pipeline_state["pending_fal"] = {
+                "kind": kind, "queue_url": queue_url,
+                "status_url": status_url, "response_url": response_url,
+                "request_id": job.get("request_id"),
+            }
+            save_state()
+
+    deadline = time.time() + max_wait_seconds
+    while time.time() < deadline:
+        if stop_requested.is_set():
+            raise RuntimeError("Stopped by user")
+        time.sleep(poll_seconds)
+        err = None
+        for _ in range(3):
+            try:
+                s = requests.get(status_url, headers=fal_headers(), timeout=30)
+                s.raise_for_status()
+                err = None
+                break
+            except Exception as e:
+                err = e
+                time.sleep(2)
+        if err:
+            continue
+        status = s.json().get("status")
+        if status == "COMPLETED":
+            r = requests.get(response_url, headers=fal_headers(), timeout=60)
+            r.raise_for_status()
+            with lock:
+                pipeline_state["pending_fal"] = None
+                save_state()
+            return r.json()
+        if status in ("FAILED", "ERROR", "CANCELLED"):
+            with lock:
+                pipeline_state["pending_fal"] = None
+                save_state()
+            raise RuntimeError(f"fal.ai queue status={status}: {s.json()}")
+    # Timeout — keep pending_fal set so a retry can resume polling the same request.
+    raise RuntimeError(f"fal.ai queue timed out after {max_wait_seconds}s (request_id={pending.get('request_id') or status_url})")
+
+
 def generate_image(scene):
     prompt = scene["imagePrompt"]
     if scene.get("lighting"):
         prompt += f", {scene['lighting']}"
-    resp = requests.post(FLUX_URL, headers=fal_headers(), json={
+    data = fal_queue_submit(FLUX_URL, {
         "prompt": prompt, "negative_prompt": NEGATIVE_PROMPT,
         "image_size": "landscape_16_9", "num_inference_steps": 28, "num_images": 1,
-    }, timeout=120)
-    resp.raise_for_status()
-    return resp.json()["images"][0]["url"]
+    }, kind="flux", poll_seconds=5, max_wait_seconds=300)
+    return data["images"][0]["url"]
 
 
 def generate_video(image_url, scene, model="v1.6"):
     kling = KLING_MODELS.get(model, KLING_MODELS["v1.6"])
-    resp = requests.post(kling["url"], headers=fal_headers(), json={
+    data = fal_queue_submit(kling["url"], {
         "image_url": image_url, "prompt": scene.get("motion", "Slow cinematic camera movement"),
         "duration": kling["duration"], "cfg_scale": 0.5,
-    }, timeout=600)
-    resp.raise_for_status()
-    data = resp.json()
+    }, kind="kling", poll_seconds=10, max_wait_seconds=1800)
     return data.get("video", {}).get("url") or data["data"]["video"]["url"]
 
 
@@ -409,9 +479,13 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
         stop_requested.clear()
         total = len(scenes)
         processed = list(existing_processed) if existing_processed else []
+        is_fresh_run = resume_from == 0 and not processed
         with lock:
-            pipeline_state.update(phase="generating_media", current_scene=resume_from, total_scenes=total,
-                                  message=f"Generating media for {total} scenes...", processed=list(processed), error=None, video_url=None)
+            updates = dict(phase="generating_media", current_scene=resume_from, total_scenes=total,
+                           message=f"Generating media for {total} scenes...", processed=list(processed), error=None, video_url=None)
+            if is_fresh_run:
+                updates["pending_fal"] = None
+            pipeline_state.update(updates)
             save_state()
         for i, scene in enumerate(scenes, 1):
             if i <= resume_from:
@@ -665,12 +739,15 @@ async def api_retry(request: Request):
         scenes = pipeline_state.get("scenes")
         processed = pipeline_state.get("processed", [])
         resume_from = len(processed)
+        model = pipeline_state.get("model") or "v3.0"
     if not scenes:
         raise HTTPException(400, "No scenes to retry — generate first")
-    log_event(request, "biblical_retry", scenes=len(scenes), resume_from=resume_from)
-    thread = threading.Thread(target=run_pipeline, args=(scenes, "v3.0", resume_from, processed), daemon=True)
+    if model not in KLING_MODELS:
+        model = "v3.0"
+    log_event(request, "biblical_retry", model=model, scenes=len(scenes), resume_from=resume_from)
+    thread = threading.Thread(target=run_pipeline, args=(scenes, model, resume_from, processed), daemon=True)
     thread.start()
-    return {"status": "resuming", "resume_from": resume_from + 1, "total_scenes": len(scenes)}
+    return {"status": "resuming", "resume_from": resume_from + 1, "total_scenes": len(scenes), "model": model}
 
 
 @biblical_router.post("/api/fix-scene")
