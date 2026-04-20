@@ -4,6 +4,28 @@ All notable changes to the Biblical Cinematic Generator. Each entry includes wha
 
 ---
 
+## [v8.1.0] - 2026-04-20
+### Added
+- ElevenLabs voice picker in both Scripture Mode and Custom Script Mode (Step 2, under the Kling model selector)
+- Dropdown of named voices (Pro Narrator default, Young Jamal, Tommy Israel, William J, Hakeem, Lamar Lincoln) plus a "paste your own voice ID" override input for any other ElevenLabs voice
+- `GET /v9/api/voices` and `GET /custom/api/voices` — return the catalog + default
+- `voice_id` accepted on every render-triggering endpoint (`/generate-video`, `/fix-scene`, `/fix-scenes`, `/preview-scenes`); persisted into `pipeline_state` so retry/resume re-uses the chosen voice
+- Voice catalogs declared in `biblical_pipeline.py` and `custom-script/router.py` (kept in sync; documented in the README)
+
+### Fixed
+- Custom Script Mode default voice was set to `lSsRWJXY8EgpdEGyqC3f`, which is a JSON2Video template ID — not a real ElevenLabs voice. Both modes now default to `NgBYGKDDq2Z8Hnhatgma` ("Pro Narrator")
+
+### Files Modified
+- `server/app.py` (Scripture Mode UI + voice loader JS)
+- `server/biblical_pipeline.py` (VOICES catalog, `resolve_voice`, `voice_id` plumbing through pipeline + payload builder)
+- `../custom-script/router.py` (mirror of above for Custom Script Mode)
+- `README.md` (voice table refreshed, removed Daniel/template-ID row)
+
+### Rollback
+- `git revert <commit>` — pure additive change, default voice id is unchanged for Scripture Mode (was already `NgBYGKDDq2Z8Hnhatgma`); Custom Script reverts to the broken template-ID default
+
+---
+
 ## [v8.0.3] - 2026-03-08
 ### Added
 - Bible chapter selector dropdown (81 books from KJV+Apocrypha PDF)

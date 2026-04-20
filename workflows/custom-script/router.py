@@ -44,6 +44,27 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
 VOICE_SPEED = 0.9
 
+# Voice catalog exposed to the UI via GET /custom/api/voices.
+# Order matters — first entry shown first in the picker. Keep in sync with
+# workflows/biblical-cinematic/server/biblical_pipeline.py and the README voice table.
+VOICES = [
+    {"id": "NgBYGKDDq2Z8Hnhatgma", "name": "Pro Narrator (default)"},
+    {"id": "6OzrBCQf8cjERkYgzSg8", "name": "Young Jamal"},
+    {"id": "T4sLxEj9xEGMREO21ACw", "name": "Tommy Israel"},
+    {"id": "C8OtYB0OTgD7K0YWkg7y", "name": "William J"},
+    {"id": "nJvj5shg2xu1GKGxqfkE", "name": "Hakeem"},
+    {"id": "CVRACyqNcQefTlxMj9b", "name": "Lamar Lincoln"},
+]
+def resolve_voice(voice_id):
+    """Return the supplied voice id (catalog or user-entered) or the default
+    if blank. We trust the caller — UI lets users paste in any ElevenLabs id,
+    so we cannot whitelist against VOICES."""
+    if isinstance(voice_id, str):
+        cleaned = voice_id.strip()
+        if cleaned:
+            return cleaned
+    return VOICE_ID
+
 # Persistent history — survives Modal redeploys via /data volume (mirrors biblical_pipeline).
 _CUSTOM_HISTORY_DIR = Path("/data") if Path("/data").exists() else Path(__file__).parent
 HISTORY_FILE = _CUSTOM_HISTORY_DIR / "custom_render_history.json"
@@ -71,6 +92,7 @@ pipeline_state = {
     "processed": [],
     "previews": {},
     "model": "v3.0",
+    "voice_id": VOICE_ID,
 }
 
 lock = threading.Lock()
@@ -158,19 +180,23 @@ class ScriptInput(BaseModel):
 class ScenesInput(BaseModel):
     scenes: list
     model: str = "v3.0"
+    voice_id: str = VOICE_ID
 
 class FixSceneInput(BaseModel):
     scene_index: int
     scene: dict
     model: str = "v3.0"
+    voice_id: str = VOICE_ID
 
 class BatchFixInput(BaseModel):
     fixes: list  # [{scene_index: int, scene: dict}, ...]
     model: str = "v3.0"
+    voice_id: str = VOICE_ID
 
 class PreviewScenesInput(BaseModel):
     fixes: list  # [{scene_index: int, scene: dict}, ...]
     model: str = "v3.0"
+    voice_id: str = VOICE_ID
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +290,8 @@ def generate_video(image_url, scene, model="v3.0"):
     return data.get("video", {}).get("url") or data["data"]["video"]["url"]
 
 
-def build_json2video_payload(scenes_data):
+def build_json2video_payload(scenes_data, voice_id=None):
+    voice = resolve_voice(voice_id)
     subtitle_settings = {
         "style": "classic", "font-family": "Oswald Bold", "font-size": 80,
         "position": "bottom-center", "line-color": "#CCCCCC", "word-color": "#FFFF00",
@@ -281,7 +308,7 @@ def build_json2video_payload(scenes_data):
             {"id": f"scene{i}_bg", "type": "video", "src": s["video_url"], "resize": "cover", "loop": -1, "duration": -2},
         ]
         if s.get("narration", "").strip():
-            elements.append({"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": VOICE_ID, "model": "elevenlabs", "speed": VOICE_SPEED})
+            elements.append({"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": voice, "model": "elevenlabs", "speed": VOICE_SPEED})
         scenes.append({"id": f"scene{i}", "comment": f"Scene {i}", "duration": "auto", "elements": elements})
     return {"resolution": "full-hd", "quality": "high", "elements": [movie_subtitles], "scenes": scenes}
 
@@ -335,8 +362,9 @@ def save_to_history(scenes, video_url, scene_count):
 # ---------------------------------------------------------------------------
 # Background runners
 # ---------------------------------------------------------------------------
-def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None):
+def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None, voice_id=None):
     global pipeline_state
+    voice_id = resolve_voice(voice_id)
     try:
         clear_stop()
         total = len(scenes)
@@ -369,7 +397,7 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None):
         with lock:
             pipeline_state["phase"] = "rendering"
             pipeline_state["message"] = "Submitting to JSON2Video for final render..."
-        payload = build_json2video_payload(processed)
+        payload = build_json2video_payload(processed, voice_id)
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Video complete!")
@@ -384,8 +412,9 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None):
             traceback.print_exc()
 
 
-def run_fix_scene(scene_index, scene, processed, model="v3.0"):
+def run_fix_scene(scene_index, scene, processed, model="v3.0", voice_id=None):
     global pipeline_state
+    voice_id = resolve_voice(voice_id)
     try:
         clear_stop()
         total = len(processed)
@@ -402,7 +431,7 @@ def run_fix_scene(scene_index, scene, processed, model="v3.0"):
         processed[scene_index] = {"narration": scene["narration"], "video_url": video_url}
         with lock:
             pipeline_state.update(phase="rendering", processed=list(processed), message="Re-submitting all scenes to JSON2Video...")
-        payload = build_json2video_payload(processed)
+        payload = build_json2video_payload(processed, voice_id)
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Fixed video complete!")
@@ -413,9 +442,10 @@ def run_fix_scene(scene_index, scene, processed, model="v3.0"):
         traceback.print_exc()
 
 
-def run_fix_scenes(fixes, processed, model="v3.0"):
+def run_fix_scenes(fixes, processed, model="v3.0", voice_id=None):
     """Batch fix: regenerate FLUX + Kling for multiple scenes, then ONE JSON2Video render."""
     global pipeline_state
+    voice_id = resolve_voice(voice_id)
     try:
         clear_stop()
         total_fixes = len(fixes)
@@ -448,7 +478,7 @@ def run_fix_scenes(fixes, processed, model="v3.0"):
                 pipeline_state["processed"] = list(processed)
         with lock:
             pipeline_state.update(phase="rendering", message="Submitting all scenes to JSON2Video...")
-        payload = build_json2video_payload(processed)
+        payload = build_json2video_payload(processed, voice_id)
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Batch fix complete!")
@@ -510,15 +540,16 @@ def run_preview_scenes(fixes, processed, model="v3.0"):
             traceback.print_exc()
 
 
-def run_approve_fixes(processed):
+def run_approve_fixes(processed, voice_id=None):
     """After preview approval, submit ONE JSON2Video render with all updated scenes."""
     global pipeline_state
+    voice_id = resolve_voice(voice_id)
     try:
         clear_stop()
         total = len(processed)
         with lock:
             pipeline_state.update(phase="rendering", message="Submitting approved scenes to JSON2Video...", error=None, video_url=None)
-        payload = build_json2video_payload(processed)
+        payload = build_json2video_payload(processed, voice_id)
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Approved render complete!")
@@ -565,14 +596,17 @@ async def api_generate_video(request: Request, body: ScenesInput):
         raise HTTPException(400, f"Missing env vars: {', '.join(missing)}")
     if pipeline_state["phase"] in ("generating_media", "rendering"):
         raise HTTPException(409, "Pipeline already running")
+    voice_id = resolve_voice(body.voice_id)
     with lock:
         pipeline_state["scenes"] = body.scenes
         pipeline_state["model"] = body.model
+        pipeline_state["voice_id"] = voice_id
     log_event(request, "custom_generate_video", model=body.model, scenes=len(body.scenes),
+              voice=voice_id,
               words=sum(len((s.get("narration") or "").split()) for s in body.scenes))
-    thread = threading.Thread(target=run_pipeline, args=(body.scenes, body.model), daemon=True)
+    thread = threading.Thread(target=run_pipeline, args=(body.scenes, body.model), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
-    return {"status": "started", "total_scenes": len(body.scenes), "model": body.model}
+    return {"status": "started", "total_scenes": len(body.scenes), "model": body.model, "voice_id": voice_id}
 
 
 @custom_router.post("/api/retry")
@@ -587,11 +621,12 @@ async def api_retry(request: Request):
         scenes = pipeline_state.get("scenes")
         processed = pipeline_state.get("processed", [])
         resume_from = len(processed)
+        voice_id = resolve_voice(pipeline_state.get("voice_id"))
     if not scenes:
         raise HTTPException(400, "No scenes to retry — generate scenes first")
     model = pipeline_state.get("model", "v3.0")
-    log_event(request, "custom_retry", model=model, scenes=len(scenes), resume_from=resume_from)
-    thread = threading.Thread(target=run_pipeline, args=(scenes, model, resume_from, processed), daemon=True)
+    log_event(request, "custom_retry", model=model, scenes=len(scenes), resume_from=resume_from, voice=voice_id)
+    thread = threading.Thread(target=run_pipeline, args=(scenes, model, resume_from, processed), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
     return {"status": "resuming", "resume_from": resume_from + 1, "total_scenes": len(scenes)}
 
@@ -610,9 +645,12 @@ async def api_fix_scene(request: Request, body: FixSceneInput):
         raise HTTPException(400, "No completed video to fix — generate a video first")
     if body.scene_index < 0 or body.scene_index >= len(processed):
         raise HTTPException(400, f"Scene index {body.scene_index} out of range")
+    voice_id = resolve_voice(body.voice_id)
+    with lock:
+        pipeline_state["voice_id"] = voice_id
     log_event(request, "custom_fix_scene", model=body.model, scene_index=body.scene_index,
-              total_scenes=len(processed))
-    thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), daemon=True)
+              total_scenes=len(processed), voice=voice_id)
+    thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
     return {"status": "fixing", "scene": body.scene_index + 1, "total_scenes": len(processed)}
 
@@ -629,9 +667,12 @@ async def api_fix_scenes(request: Request, body: BatchFixInput):
         processed = pipeline_state.get("processed", [])
     if not processed:
         raise HTTPException(400, "No completed video to fix")
+    voice_id = resolve_voice(body.voice_id)
+    with lock:
+        pipeline_state["voice_id"] = voice_id
     log_event(request, "custom_fix_scenes", model=body.model, fix_count=len(body.fixes),
-              total_scenes=len(processed))
-    thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
+              total_scenes=len(processed), voice=voice_id)
+    thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
     return {"status": "fixing", "fix_count": len(body.fixes)}
 
@@ -648,8 +689,11 @@ async def api_preview_scenes(request: Request, body: PreviewScenesInput):
         processed = pipeline_state.get("processed", [])
     if not processed:
         raise HTTPException(400, "No completed video to preview fixes for")
+    voice_id = resolve_voice(body.voice_id)
+    with lock:
+        pipeline_state["voice_id"] = voice_id
     log_event(request, "custom_preview_scenes", model=body.model, fix_count=len(body.fixes),
-              total_scenes=len(processed))
+              total_scenes=len(processed), voice=voice_id)
     thread = threading.Thread(target=run_preview_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
     thread.start()
     return {"status": "previewing", "fix_count": len(body.fixes)}
@@ -662,10 +706,11 @@ async def api_approve_fixes(request: Request):
         raise HTTPException(409, "Pipeline is still running")
     with lock:
         processed = pipeline_state.get("processed", [])
+        voice_id = resolve_voice(pipeline_state.get("voice_id"))
     if not processed:
         raise HTTPException(400, "No scenes to render")
-    log_event(request, "custom_approve_fixes", total_scenes=len(processed))
-    thread = threading.Thread(target=run_approve_fixes, args=(list(processed),), daemon=True)
+    log_event(request, "custom_approve_fixes", total_scenes=len(processed), voice=voice_id)
+    thread = threading.Thread(target=run_approve_fixes, args=(list(processed),), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
     return {"status": "rendering"}
 
@@ -699,6 +744,11 @@ async def api_history_detail(history_id: str):
 async def api_status():
     with lock:
         return JSONResponse(dict(pipeline_state))
+
+
+@custom_router.get("/api/voices")
+async def api_voices():
+    return JSONResponse({"voices": VOICES, "default": VOICE_ID})
 
 
 @custom_router.get("/", response_class=HTMLResponse)
@@ -816,6 +866,18 @@ Example: A channel trailer about the 12 Tribes of Israel, their scattering, and 
             </div>
           </label>
         </div>
+      </div>
+      <!-- Voice selector -->
+      <div class="mt-4 mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
+        <label for="custom-voice" class="block text-sm font-medium text-gray-300 mb-2">ElevenLabs Voice</label>
+        <select id="custom-voice"
+          class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-amber-500">
+          <option value="">Loading voices...</option>
+        </select>
+        <label for="custom-voice-custom" class="block text-xs text-gray-400 mt-3 mb-1">Or paste your own voice ID (overrides the dropdown)</label>
+        <input id="custom-voice-custom" type="text" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM" spellcheck="false"
+          class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-xs font-mono focus:outline-none focus:border-amber-500" />
+        <p class="text-xs text-gray-500 mt-2">Used for narration. Applies to fresh renders, fix-scene re-renders, and approved previews.</p>
       </div>
       <div class="flex items-center gap-4 mt-6">
         <button onclick="addScene()" class="border border-gray-600 hover:border-amber-500 text-gray-300 hover:text-amber-400 px-4 py-2 rounded-lg transition-colors text-sm">
@@ -990,7 +1052,11 @@ async function generateVideo() {
   try {
     const res = await fetch(API_PREFIX + '/api/generate-video', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({scenes: currentScenes, model: document.querySelector('input[name="custom-kling-model"]:checked')?.value || 'v3.0'})
+      body: JSON.stringify({
+        scenes: currentScenes,
+        model: document.querySelector('input[name="custom-kling-model"]:checked')?.value || 'v3.0',
+        voice_id: selectedCustomVoice(),
+      })
     });
     if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to start pipeline'); }
     startPolling();
@@ -1200,7 +1266,7 @@ async function previewSelectedScenes() {
   try {
     const res = await fetch(API_PREFIX + '/api/preview-scenes', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fixes})
+      body: JSON.stringify({fixes, voice_id: selectedCustomVoice()})
     });
     if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Preview failed'); }
     startPolling();
@@ -1247,7 +1313,7 @@ async function batchFixScenes() {
   try {
     const res = await fetch(API_PREFIX + '/api/fix-scenes', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fixes})
+      body: JSON.stringify({fixes, voice_id: selectedCustomVoice()})
     });
     if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Batch fix failed'); }
     startPolling();
@@ -1302,8 +1368,32 @@ function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// Load history on page load
-document.addEventListener('DOMContentLoaded', loadHistory);
+// Populate voice picker from server. Runs once at load — voices rarely change.
+async function loadVoices() {
+  const sel = document.getElementById('custom-voice');
+  if (!sel) return;
+  try {
+    const res = await fetch(API_PREFIX + '/api/voices');
+    const data = await res.json();
+    const voices = data.voices || [];
+    const def = data.default;
+    sel.innerHTML = voices.map(v =>
+      '<option value="' + v.id + '"' + (v.id === def ? ' selected' : '') + '>' + esc(v.name) + '</option>'
+    ).join('');
+  } catch(e) {
+    sel.innerHTML = '<option value="">Voice list unavailable</option>';
+  }
+}
+
+// Custom-ID input wins over the dropdown when filled — lets users paste any ElevenLabs id.
+function selectedCustomVoice() {
+  const custom = (document.getElementById('custom-voice-custom')?.value || '').trim();
+  if (custom) return custom;
+  return document.getElementById('custom-voice')?.value || '';
+}
+
+// Load history + voices on page load
+document.addEventListener('DOMContentLoaded', () => { loadHistory(); loadVoices(); });
 </script>
 </body>
 </html>"""

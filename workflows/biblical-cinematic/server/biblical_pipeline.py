@@ -52,6 +52,27 @@ KLING_MODELS = {
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
 VOICE_SPEED = 0.9
 
+# Voice catalog exposed to the UI via GET /v9/api/voices.
+# Order matters — first entry shown first in the picker. Keep in sync with
+# workflows/custom-script/router.py and the README voice table.
+VOICES = [
+    {"id": "NgBYGKDDq2Z8Hnhatgma", "name": "Pro Narrator (default)"},
+    {"id": "6OzrBCQf8cjERkYgzSg8", "name": "Young Jamal"},
+    {"id": "T4sLxEj9xEGMREO21ACw", "name": "Tommy Israel"},
+    {"id": "C8OtYB0OTgD7K0YWkg7y", "name": "William J"},
+    {"id": "nJvj5shg2xu1GKGxqfkE", "name": "Hakeem"},
+    {"id": "CVRACyqNcQefTlxMj9b", "name": "Lamar Lincoln"},
+]
+def resolve_voice(voice_id):
+    """Return the supplied voice id (catalog or user-entered) or the default
+    if blank. We trust the caller — UI lets users paste in any ElevenLabs id,
+    so we cannot whitelist against VOICES."""
+    if isinstance(voice_id, str):
+        cleaned = voice_id.strip()
+        if cleaned:
+            return cleaned
+    return VOICE_ID
+
 # Auto-split threshold: if total narration exceeds this many words, split into multiple renders
 # Based on render history, 865 words (325s) succeeded at 662s render time; 1467 words always times out
 MAX_WORDS_PER_RENDER = 900
@@ -92,6 +113,7 @@ pipeline_state = {
     "book": "",
     "chapter": "",
     "model": "v1.6",
+    "voice_id": VOICE_ID,
     # Pending fal.ai queue request persisted across container restarts — prevents
     # duplicate-charge ghosts when a long-running Kling clip is interrupted mid-poll.
     # {"kind": "flux"|"kling", "queue_url": str, "status_url": str, "response_url": str, "request_id": str}
@@ -235,22 +257,26 @@ class BiblicalGenerateInput(BaseModel):
     scene_count: int = 20  # legacy — ignored, scene count now auto-calculated from Kling clip duration
     book: str = ""
     chapter: str = ""
+    voice_id: str = VOICE_ID
 
 
 class BiblicalScenesInput(BaseModel):
     scenes: list
     model: str = "v1.6"
+    voice_id: str = VOICE_ID
 
 
 class BiblicalFixSceneInput(BaseModel):
     scene_index: int
     scene: dict
     model: str = "v1.6"
+    voice_id: str = VOICE_ID
 
 
 class BiblicalFixScenesInput(BaseModel):
     fixes: list  # [{scene_index: int, scene: dict}, ...]
     model: str = "v1.6"
+    voice_id: str = VOICE_ID
 
 
 # ---------------------------------------------------------------------------
@@ -441,7 +467,8 @@ def generate_video(image_url, scene, model="v1.6"):
     return data.get("video", {}).get("url") or data["data"]["video"]["url"]
 
 
-def build_json2video_payload(scenes_data):
+def build_json2video_payload(scenes_data, voice_id=None):
+    voice = resolve_voice(voice_id)
     subtitle_settings = {
         "style": "classic", "font-family": "Oswald Bold", "font-size": 80,
         "position": "bottom-center", "line-color": "#CCCCCC", "word-color": "#FFFF00",
@@ -454,7 +481,7 @@ def build_json2video_payload(scenes_data):
             {"id": f"scene{i}_bg", "type": "video", "src": s["video_url"], "resize": "cover", "loop": -1, "duration": -2},
         ]
         if s.get("narration", "").strip():
-            elements.append({"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": VOICE_ID, "model": "elevenlabs", "speed": VOICE_SPEED})
+            elements.append({"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": voice, "model": "elevenlabs", "speed": VOICE_SPEED})
         scenes.append({"id": f"scene{i}", "comment": f"Scene {i}", "duration": "auto", "elements": elements})
     # Movie-level subtitle element — JSON2Video requires this at root, not per-scene
     movie_subtitles = {"id": "movie_subtitles", "type": "subtitles", "language": "en", "model": "default", "settings": subtitle_settings}
@@ -507,8 +534,9 @@ def save_to_history(status="done"):
 # ---------------------------------------------------------------------------
 # Background runners
 # ---------------------------------------------------------------------------
-def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
+def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None, voice_id=None):
     global pipeline_state
+    voice_id = resolve_voice(voice_id)
     try:
         clear_stop()
         total = len(scenes)
@@ -557,7 +585,7 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
                 with lock:
                     pipeline_state["phase"] = "rendering"
                     pipeline_state["message"] = f"Rendering Part {part_num} of {len(parts)} ({len(part)} scenes)..."
-                payload = build_json2video_payload(part)
+                payload = build_json2video_payload(part, voice_id)
                 mp4_url = submit_and_poll_json2video(payload)
                 part_urls.append(mp4_url)
             with lock:
@@ -567,7 +595,7 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
             with lock:
                 pipeline_state["phase"] = "rendering"
                 pipeline_state["message"] = "Submitting to JSON2Video for final render..."
-            payload = build_json2video_payload(processed)
+            payload = build_json2video_payload(processed, voice_id)
             mp4_url = submit_and_poll_json2video(payload)
             with lock:
                 pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Video complete!")
@@ -580,8 +608,9 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None):
         traceback.print_exc()
 
 
-def run_fix_scene(scene_index, scene, processed, model="v1.6"):
+def run_fix_scene(scene_index, scene, processed, model="v1.6", voice_id=None):
     global pipeline_state
+    voice_id = resolve_voice(voice_id)
     try:
         total = len(processed)
         idx = scene_index + 1
@@ -598,7 +627,7 @@ def run_fix_scene(scene_index, scene, processed, model="v1.6"):
             if pipeline_state.get("scenes") and scene_index < len(pipeline_state["scenes"]):
                 pipeline_state["scenes"][scene_index].update(scene)
             pipeline_state.update(phase="rendering", processed=list(processed), message="Re-submitting all scenes to JSON2Video...")
-        payload = build_json2video_payload(processed)
+        payload = build_json2video_payload(processed, voice_id)
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Fixed video complete!")
@@ -611,9 +640,10 @@ def run_fix_scene(scene_index, scene, processed, model="v1.6"):
         traceback.print_exc()
 
 
-def run_fix_scenes(fixes, processed, model="v1.6"):
+def run_fix_scenes(fixes, processed, model="v1.6", voice_id=None):
     """Batch-fix multiple scenes: regenerate FLUX + Kling for each, then ONE JSON2Video render."""
     global pipeline_state
+    voice_id = resolve_voice(voice_id)
     try:
         clear_stop()
         total_fixes = len(fixes)
@@ -648,7 +678,7 @@ def run_fix_scenes(fixes, processed, model="v1.6"):
                 pipeline_state["message"] = f"Fixed scene {fix_num} of {total_fixes} selected"
         with lock:
             pipeline_state.update(phase="rendering", processed=list(processed), message="Re-submitting all scenes to JSON2Video...")
-        payload = build_json2video_payload(processed)
+        payload = build_json2video_payload(processed, voice_id)
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Batch fix complete!")
@@ -712,13 +742,15 @@ async def api_generate_video(request: Request, body: BiblicalScenesInput):
         raise HTTPException(409, "Pipeline already running")
 
     scenes = body.scenes
+    voice_id = resolve_voice(body.voice_id)
     with lock:
-        pipeline_state.update(scenes=scenes, model=model)
+        pipeline_state.update(scenes=scenes, model=model, voice_id=voice_id)
     log_event(request, "biblical_generate_video", model=model, scenes=len(scenes),
+              voice=voice_id,
               words=sum(len((s.get("narration") or "").split()) for s in scenes))
-    thread = threading.Thread(target=run_pipeline, args=(scenes, model), daemon=True)
+    thread = threading.Thread(target=run_pipeline, args=(scenes, model), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
-    return {"status": "started", "total_scenes": len(scenes), "model": model}
+    return {"status": "started", "total_scenes": len(scenes), "model": model, "voice_id": voice_id}
 
 
 @biblical_router.post("/api/generate")
@@ -737,10 +769,11 @@ async def api_generate(request: Request, body: BiblicalGenerateInput):
         raise HTTPException(409, "Pipeline already running")
 
     try:
+        voice_id = resolve_voice(body.voice_id)
         with lock:
             pipeline_state.update(phase="generating_scenes", message="Splitting scripture and generating scene visuals with Claude AI...",
                                   scenes=None, error=None, video_url=None, video_urls=[], processed=[],
-                                  book=body.book, chapter=body.chapter, model=body.model)
+                                  book=body.book, chapter=body.chapter, model=body.model, voice_id=voice_id)
 
         words_target = WORDS_PER_SCENE.get(body.model, 30)
         narration_chunks = split_scripture_into_scenes(body.text, words_target)
@@ -751,8 +784,8 @@ async def api_generate(request: Request, body: BiblicalGenerateInput):
             save_state()
 
         log_event(request, "biblical_generate_legacy", model=body.model, scenes=len(scenes),
-                  book=body.book, chapter=body.chapter)
-        thread = threading.Thread(target=run_pipeline, args=(scenes, body.model), daemon=True)
+                  book=body.book, chapter=body.chapter, voice=voice_id)
+        thread = threading.Thread(target=run_pipeline, args=(scenes, body.model), kwargs={"voice_id": voice_id}, daemon=True)
         thread.start()
 
         return {"status": "started", "total_scenes": len(scenes), "scenes": scenes}
@@ -774,12 +807,13 @@ async def api_retry(request: Request):
         processed = pipeline_state.get("processed", [])
         resume_from = len(processed)
         model = pipeline_state.get("model") or "v3.0"
+        voice_id = resolve_voice(pipeline_state.get("voice_id"))
     if not scenes:
         raise HTTPException(400, "No scenes to retry — generate first")
     if model not in KLING_MODELS:
         model = "v3.0"
-    log_event(request, "biblical_retry", model=model, scenes=len(scenes), resume_from=resume_from)
-    thread = threading.Thread(target=run_pipeline, args=(scenes, model, resume_from, processed), daemon=True)
+    log_event(request, "biblical_retry", model=model, scenes=len(scenes), resume_from=resume_from, voice=voice_id)
+    thread = threading.Thread(target=run_pipeline, args=(scenes, model, resume_from, processed), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
     return {"status": "resuming", "resume_from": resume_from + 1, "total_scenes": len(scenes), "model": model}
 
@@ -797,9 +831,12 @@ async def api_fix_scene(request: Request, body: BiblicalFixSceneInput):
         raise HTTPException(400, "No completed video to fix")
     if body.scene_index < 0 or body.scene_index >= len(processed):
         raise HTTPException(400, f"Scene index {body.scene_index} out of range")
+    voice_id = resolve_voice(body.voice_id)
+    with lock:
+        pipeline_state["voice_id"] = voice_id
     log_event(request, "biblical_fix_scene", model=body.model, scene_index=body.scene_index,
-              total_scenes=len(processed))
-    thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), daemon=True)
+              total_scenes=len(processed), voice=voice_id)
+    thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
     return {"status": "fixing", "scene": body.scene_index + 1, "total_scenes": len(processed)}
 
@@ -823,9 +860,12 @@ async def api_fix_scenes(request: Request, body: BiblicalFixScenesInput):
             raise HTTPException(400, f"Scene index {idx} out of range")
         if "scene" not in fix:
             raise HTTPException(400, f"Missing scene data for index {idx}")
+    voice_id = resolve_voice(body.voice_id)
+    with lock:
+        pipeline_state["voice_id"] = voice_id
     log_event(request, "biblical_fix_scenes", model=body.model, fix_count=len(body.fixes),
-              total_scenes=len(processed))
-    thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
+              total_scenes=len(processed), voice=voice_id)
+    thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), kwargs={"voice_id": voice_id}, daemon=True)
     thread.start()
     return {"status": "fixing", "scenes": len(body.fixes), "total_scenes": len(processed)}
 
@@ -863,3 +903,8 @@ async def api_stop():
 async def api_status():
     with lock:
         return JSONResponse(dict(pipeline_state))
+
+
+@biblical_router.get("/api/voices")
+async def api_voices():
+    return JSONResponse({"voices": VOICES, "default": VOICE_ID})

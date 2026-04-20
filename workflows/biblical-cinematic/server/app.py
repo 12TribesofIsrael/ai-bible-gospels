@@ -962,6 +962,19 @@ LANDING_PAGE = """<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- Voice selector -->
+        <div class="mt-4 mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
+          <label for="bible-voice" class="block text-sm font-medium text-gray-300 mb-2">ElevenLabs Voice</label>
+          <select id="bible-voice"
+            class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-amber-500">
+            <option value="">Loading voices...</option>
+          </select>
+          <label for="bible-voice-custom" class="block text-xs text-gray-400 mt-3 mb-1">Or paste your own voice ID (overrides the dropdown)</label>
+          <input id="bible-voice-custom" type="text" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM" spellcheck="false"
+            class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-xs font-mono focus:outline-none focus:border-amber-500" />
+          <p class="text-xs text-gray-500 mt-2">Used by ElevenLabs for narration. Applies to fresh renders and fix-scene re-renders.</p>
+        </div>
+
         <div class="flex items-center justify-between mt-4">
           <p class="text-xs text-gray-500">✏️ You can edit the text above before approving.</p>
           <button
@@ -1573,7 +1586,7 @@ LANDING_PAGE = """<!DOCTYPE html>
         const res = await fetch('/v9/api/fix-scenes', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({fixes, model})
+          body: JSON.stringify({fixes, model, voice_id: selectedBibleVoice()})
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
         startPolling();
@@ -1886,6 +1899,7 @@ LANDING_PAGE = """<!DOCTYPE html>
             model: model,
             book: document.getElementById('bible-book')?.value || '',
             chapter: document.getElementById('bible-chapter')?.value || '',
+            voice_id: selectedBibleVoice(),
           }),
         });
 
@@ -1945,7 +1959,11 @@ LANDING_PAGE = """<!DOCTYPE html>
         const res = await fetch('/v9/api/generate-video', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scenes: v9Scenes, model: model }),
+          body: JSON.stringify({
+            scenes: v9Scenes,
+            model: model,
+            voice_id: selectedBibleVoice(),
+          }),
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to start pipeline'); }
         setStep(3);
@@ -2342,8 +2360,32 @@ LANDING_PAGE = """<!DOCTYPE html>
       }
     }
 
+    // Populate voice picker from server. Runs once at load — voices rarely change.
+    async function loadV9Voices() {
+      const sel = document.getElementById('bible-voice');
+      if (!sel) return;
+      try {
+        const res = await fetch('/v9/api/voices');
+        const data = await res.json();
+        const voices = data.voices || [];
+        const def = data.default;
+        sel.innerHTML = voices.map(v =>
+          '<option value="' + v.id + '"' + (v.id === def ? ' selected' : '') + '>' + escHtml(v.name) + '</option>'
+        ).join('');
+      } catch(e) {
+        sel.innerHTML = '<option value="">Voice list unavailable</option>';
+      }
+    }
+
+    // Custom-ID input wins over the dropdown when filled — lets users paste any ElevenLabs id.
+    function selectedBibleVoice() {
+      const custom = (document.getElementById('bible-voice-custom')?.value || '').trim();
+      if (custom) return custom;
+      return document.getElementById('bible-voice')?.value || '';
+    }
+
     // Auto-check files on page load
-    window.addEventListener('load', () => { checkRawFiles(); checkFinalFiles(); });
+    window.addEventListener('load', () => { checkRawFiles(); checkFinalFiles(); loadV9Voices(); });
 
   </script>
 </body>

@@ -138,9 +138,12 @@ The script will:
 
 ## ElevenLabs Voice IDs
 
+The web app exposes a voice picker (Step 2b in Scripture Mode and Step 2 in Custom Script Mode) backed by `GET /v9/api/voices` and `GET /custom/api/voices`. The catalog lives in `biblical_pipeline.py` (`VOICES`) and `custom-script/router.py` (`VOICES`) — keep both in sync when adding voices.
+
 | Voice | ID | Style |
 |---|---|---|
-| Young Jamal *(default)* | `6OzrBCQf8cjERkYgzSg8` | Young, clear narration |
+| Pro Narrator *(default — both modes)* | `NgBYGKDDq2Z8Hnhatgma` | Professional, 214 WPM — long-standing biblical narrator |
+| Young Jamal | `6OzrBCQf8cjERkYgzSg8` | Young, clear narration |
 | Tommy Israel *(personal)* | `T4sLxEj9xEGMREO21ACw` | Personal voice |
 | William J | `C8OtYB0OTgD7K0YWkg7y` | Professional |
 | Hakeem | `nJvj5shg2xu1GKGxqfkE` | African American, deep |
