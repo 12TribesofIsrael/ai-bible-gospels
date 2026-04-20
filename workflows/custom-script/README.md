@@ -48,8 +48,8 @@ python workflows/custom-script/server.py
 
 **Step 1** — Paste your script/concept in the text area, click "Generate Scenes with Claude AI"
 **Step 2** — Review and edit scenes (narration, image prompts, motion, lighting). Add or remove scenes as needed.
-**Step 3** — Click "Generate Video" — real-time progress shows per-scene FLUX/Kling status
-**Step 4** — Download the final MP4
+**Step 3** — Pick your Kling model + **Aspect Ratio** (16:9 YouTube · 1:1 Feed · 9:16 Shorts/Reels/TikTok), then click "Generate Video" — real-time progress shows per-scene FLUX/Kling status
+**Step 4** — Download the final MP4 (1920×1080 · 1080×1080 · or 1080×1920 depending on ratio picked)
 
 If the pipeline fails mid-way, click **"Retry from Failed Scene"** — it picks up where it left off without re-generating completed scenes.
 

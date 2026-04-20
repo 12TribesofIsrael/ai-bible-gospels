@@ -6,8 +6,8 @@ Two production workflows run on a **unified web app** at http://localhost:8000:
 
 | Workflow | Status | What it does |
 |---|---|---|
-| **Biblical Cinematic** (Scripture Mode) | Production (v12) | KJV scripture → Claude AI scenes → FLUX + Kling + JSON2Video → cinematic MP4 with narration & subtitles |
-| **Custom Script** (Custom Script Mode) | Production | Any script/concept → Claude AI scenes → dynamic-length cinematic video with preview-first batch fix |
+| **Biblical Cinematic** (Scripture Mode) | Production (v13) | KJV scripture → Claude AI scenes → FLUX + Kling + JSON2Video → cinematic MP4 (16:9 YouTube / 1:1 Feed / 9:16 Shorts) |
+| **Custom Script** (Custom Script Mode) | Production | Any script/concept → Claude AI scenes → dynamic-length cinematic video (16:9 / 1:1 / 9:16) with preview-first batch fix |
 | **General AI Movie** | Reference | Script → GPT-4o → FLUX → Kling → OpenAI TTS → FFmpeg assembled movie |
 
 ### Quick Start
@@ -42,6 +42,8 @@ Paste raw KJV scripture. The app cleans and formats it, Claude AI generates cine
 
 ### Features
 
+- **Aspect Ratio Picker** — choose 16:9 (YouTube/TV · 1920×1080), 1:1 (Instagram/Facebook feed · 1080×1080), or 9:16 (Reels/TikTok/Shorts · 1080×1920). FLUX, Kling, and JSON2Video all switch together; subtitles resize per ratio.
+- **ElevenLabs Voice Picker** — Pro Narrator, Daniel Steady Broadcaster, Young Jamal, Tommy Israel, William J, Hakeem, Lamar Lincoln, or paste any ElevenLabs voice ID
 - **Scene Preview & Edit** — review and edit every scene (narration, image prompt, motion, lighting) before spending render credits
 - **Auto-Split** — chapters over 900 words automatically split into Part 1 / Part 2
 - **Batch Fix Scenes** — check multiple scenes, edit prompts inline, regenerate all with ONE JSON2Video render

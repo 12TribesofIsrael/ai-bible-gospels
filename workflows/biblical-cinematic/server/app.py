@@ -791,7 +791,7 @@ LANDING_PAGE = """<!DOCTYPE html>
           class="text-xs text-purple-400 hover:text-purple-300 border border-purple-800 hover:border-purple-600 px-3 py-1.5 rounded-lg transition-colors">
           ▼ Post-Production
         </a>
-        <span class="text-xs text-gray-600">v12 · AI Bible Gospels</span>
+        <span class="text-xs text-gray-600">v13 · AI Bible Gospels</span>
       </div>
     </div>
   </nav>
@@ -957,6 +957,37 @@ LANDING_PAGE = """<!DOCTYPE html>
                 <div class="text-sm font-semibold text-white">O3 Pro</div>
                 <div class="text-xs text-gray-400 mt-1">Best consistency · Premium</div>
                 <div class="text-xs text-purple-400 mt-1 font-medium">~$60/chapter</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Aspect ratio selector -->
+        <div class="mt-4 mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
+          <label class="block text-sm font-medium text-gray-300 mb-2">Aspect Ratio</label>
+          <div class="grid grid-cols-3 gap-3">
+            <label class="relative cursor-pointer">
+              <input type="radio" name="aspect-ratio" value="16:9" class="peer sr-only" checked>
+              <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+                <div class="text-sm font-semibold text-white">LONG · 16:9</div>
+                <div class="text-xs text-gray-400 mt-1">YouTube / TV</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">1920×1080</div>
+              </div>
+            </label>
+            <label class="relative cursor-pointer">
+              <input type="radio" name="aspect-ratio" value="1:1" class="peer sr-only">
+              <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+                <div class="text-sm font-semibold text-white">MIDDLE · 1:1</div>
+                <div class="text-xs text-gray-400 mt-1">IG / FB Feed</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">1080×1080</div>
+              </div>
+            </label>
+            <label class="relative cursor-pointer">
+              <input type="radio" name="aspect-ratio" value="9:16" class="peer sr-only">
+              <div class="p-3 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+                <div class="text-sm font-semibold text-white">SHORT · 9:16</div>
+                <div class="text-xs text-gray-400 mt-1">Reels / TikTok / Shorts</div>
+                <div class="text-xs text-amber-400 mt-1 font-medium">1080×1920</div>
               </div>
             </label>
           </div>
@@ -1559,6 +1590,7 @@ LANDING_PAGE = """<!DOCTYPE html>
       const cbs = document.querySelectorAll('.v9-fix-cb:checked');
       if (!cbs.length) return;
       const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v1.6';
+      const aspect_ratio = document.querySelector('input[name="aspect-ratio"]:checked')?.value || '16:9';
       const fixes = [];
       cbs.forEach(cb => {
         const idx = parseInt(cb.dataset.idx);
@@ -1586,7 +1618,7 @@ LANDING_PAGE = """<!DOCTYPE html>
         const res = await fetch('/v9/api/fix-scenes', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({fixes, model, voice_id: selectedBibleVoice()})
+          body: JSON.stringify({fixes, model, aspect_ratio, voice_id: selectedBibleVoice()})
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
         startPolling();
@@ -1886,6 +1918,7 @@ LANDING_PAGE = """<!DOCTYPE html>
 
       const btn = document.getElementById('approve-btn');
       const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v3.0';
+      const aspect_ratio = document.querySelector('input[name="aspect-ratio"]:checked')?.value || '16:9';
       btn.innerHTML = '<span class="spinner"></span><span>Claude AI generating scenes...</span>';
       btn.disabled = true;
       hideError('approve-error');
@@ -1897,6 +1930,7 @@ LANDING_PAGE = """<!DOCTYPE html>
           body: JSON.stringify({
             text: approvedText,
             model: model,
+            aspect_ratio: aspect_ratio,
             book: document.getElementById('bible-book')?.value || '',
             chapter: document.getElementById('bible-chapter')?.value || '',
             voice_id: selectedBibleVoice(),
@@ -1952,6 +1986,7 @@ LANDING_PAGE = """<!DOCTYPE html>
     async function startV9Video() {
       if (v9Scenes.length === 0) return alert('No scenes to generate');
       const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v3.0';
+      const aspect_ratio = document.querySelector('input[name="aspect-ratio"]:checked')?.value || '16:9';
       const btn = document.getElementById('btnV9GenVideo');
       btn.disabled = true;
       btn.textContent = 'Starting...';
@@ -1962,6 +1997,7 @@ LANDING_PAGE = """<!DOCTYPE html>
           body: JSON.stringify({
             scenes: v9Scenes,
             model: model,
+            aspect_ratio: aspect_ratio,
             voice_id: selectedBibleVoice(),
           }),
         });

@@ -4,6 +4,30 @@ All notable changes to the Biblical Cinematic Generator. Each entry includes wha
 
 ---
 
+## [v8.2.0] - 2026-04-20
+### Added
+- **Aspect ratio picker** in both Scripture Mode and Custom Script Mode (under the Kling model selector). Three options:
+  - **LONG · 16:9** — 1920×1080 · YouTube / TV (default, preserves existing behavior)
+  - **MIDDLE · 1:1** — 1080×1080 · Facebook / Instagram feed
+  - **SHORT · 9:16** — 1080×1920 · TikTok, Reels, YouTube Shorts
+- `aspect_ratio` threaded through request bodies → `pipeline_state["aspect_ratio"]` → FLUX `image_size` + Kling `aspect_ratio` + JSON2Video `resolution`, with per-ratio subtitle font-size and max-words-per-line tuned for the narrower canvases
+- `ASPECT_RATIOS` dict in `biblical_pipeline.py` + `custom-script/router.py` (single source of truth for the four-way mapping: canonical ratio → FLUX preset → Kling param → J2V resolution → subtitle tweaks)
+- "Daniel Steady Broadcaster" (`onwK4e9ZLuTAKqWW03F9`) added to the ElevenLabs voice catalog, 2nd position after Pro Narrator
+
+### Files Modified
+- `server/biblical_pipeline.py` — `ASPECT_RATIOS` dict, `aspect_ratio` field on 4 Pydantic request classes, state plumbing, call-site wiring in `generate_image` / `generate_video` / `build_json2video_payload`
+- `server/app.py` — aspect-ratio radio picker HTML + JS `fetch` calls to `/v9/api/generate-scenes`, `/v9/api/generate-video`, `/v9/api/fix-scenes`
+- `../custom-script/router.py` — mirror of all the above (dict + Pydantic + state + pipeline + UI)
+
+### Out of scope (for this release)
+- `recover.py` and `recover_run.py` still hardcode 16:9 — non-16:9 render recovery will require manual edits to the two lines in each script. Fine to defer; recovery scripts run maybe once a quarter.
+- Render history does not remember the aspect ratio used — reloading a past render into the fix panel keeps whatever the UI picker is currently showing.
+
+### Rollback
+- `git revert <commit>` — pure additive change. Default `"16:9"` everywhere preserves the previous 1920×1080 output exactly.
+
+---
+
 ## [v8.1.0] - 2026-04-20
 ### Added
 - ElevenLabs voice picker in both Scripture Mode and Custom Script Mode (Step 2, under the Kling model selector)

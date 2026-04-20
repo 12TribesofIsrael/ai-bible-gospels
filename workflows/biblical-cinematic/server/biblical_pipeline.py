@@ -49,6 +49,16 @@ KLING_MODELS = {
     "o3-pro": {"url": "https://fal.run/fal-ai/kling-video/o3/pro/image-to-video", "duration": "15"},
 }
 
+# fal's FLUX uses `portrait_16_9` as its label for a 9:16 (tall) canvas — not a typo.
+ASPECT_RATIOS = {
+    "16:9": {"flux": "landscape_16_9", "kling": "16:9", "j2v": "full-hd",
+             "sub_font_size": 80, "sub_max_words": 4},
+    "1:1":  {"flux": "square_hd",      "kling": "1:1",  "j2v": "instagram-feed",
+             "sub_font_size": 70, "sub_max_words": 3},
+    "9:16": {"flux": "portrait_16_9",  "kling": "9:16", "j2v": "instagram-story",
+             "sub_font_size": 64, "sub_max_words": 3},
+}
+
 VOICE_ID = "NgBYGKDDq2Z8Hnhatgma"
 VOICE_SPEED = 0.9
 
@@ -57,6 +67,7 @@ VOICE_SPEED = 0.9
 # workflows/custom-script/router.py and the README voice table.
 VOICES = [
     {"id": "NgBYGKDDq2Z8Hnhatgma", "name": "Pro Narrator (default)"},
+    {"id": "onwK4e9ZLuTAKqWW03F9", "name": "Daniel Steady Broadcaster"},
     {"id": "6OzrBCQf8cjERkYgzSg8", "name": "Young Jamal"},
     {"id": "T4sLxEj9xEGMREO21ACw", "name": "Tommy Israel"},
     {"id": "C8OtYB0OTgD7K0YWkg7y", "name": "William J"},
@@ -113,6 +124,7 @@ pipeline_state = {
     "book": "",
     "chapter": "",
     "model": "v1.6",
+    "aspect_ratio": "16:9",
     "voice_id": VOICE_ID,
     # Pending fal.ai queue request persisted across container restarts — prevents
     # duplicate-charge ghosts when a long-running Kling clip is interrupted mid-poll.
@@ -254,6 +266,7 @@ Return ONLY valid JSON in this exact format:
 class BiblicalGenerateInput(BaseModel):
     text: str
     model: str = "v1.6"
+    aspect_ratio: str = "16:9"
     scene_count: int = 20  # legacy — ignored, scene count now auto-calculated from Kling clip duration
     book: str = ""
     chapter: str = ""
@@ -263,6 +276,7 @@ class BiblicalGenerateInput(BaseModel):
 class BiblicalScenesInput(BaseModel):
     scenes: list
     model: str = "v1.6"
+    aspect_ratio: str = "16:9"
     voice_id: str = VOICE_ID
 
 
@@ -270,12 +284,14 @@ class BiblicalFixSceneInput(BaseModel):
     scene_index: int
     scene: dict
     model: str = "v1.6"
+    aspect_ratio: str = "16:9"
     voice_id: str = VOICE_ID
 
 
 class BiblicalFixScenesInput(BaseModel):
     fixes: list  # [{scene_index: int, scene: dict}, ...]
     model: str = "v1.6"
+    aspect_ratio: str = "16:9"
     voice_id: str = VOICE_ID
 
 
@@ -451,29 +467,33 @@ def generate_image(scene):
     prompt = scene["imagePrompt"]
     if scene.get("lighting"):
         prompt += f", {scene['lighting']}"
+    ratio = ASPECT_RATIOS.get(pipeline_state.get("aspect_ratio", "16:9"), ASPECT_RATIOS["16:9"])
     data = fal_queue_submit(FLUX_URL, {
         "prompt": prompt, "negative_prompt": NEGATIVE_PROMPT,
-        "image_size": "landscape_16_9", "num_inference_steps": 28, "num_images": 1,
+        "image_size": ratio["flux"], "num_inference_steps": 28, "num_images": 1,
     }, kind="flux", poll_seconds=5, max_wait_seconds=300)
     return data["images"][0]["url"]
 
 
 def generate_video(image_url, scene, model="v1.6"):
     kling = KLING_MODELS.get(model, KLING_MODELS["v1.6"])
+    ratio = ASPECT_RATIOS.get(pipeline_state.get("aspect_ratio", "16:9"), ASPECT_RATIOS["16:9"])
     data = fal_queue_submit(kling["url"], {
         "image_url": image_url, "prompt": scene.get("motion", "Slow cinematic camera movement"),
         "duration": kling["duration"], "cfg_scale": 0.5,
+        "aspect_ratio": ratio["kling"],
     }, kind="kling", poll_seconds=10, max_wait_seconds=1800)
     return data.get("video", {}).get("url") or data["data"]["video"]["url"]
 
 
-def build_json2video_payload(scenes_data, voice_id=None):
+def build_json2video_payload(scenes_data, voice_id=None, aspect_ratio="16:9"):
     voice = resolve_voice(voice_id)
+    ratio = ASPECT_RATIOS.get(aspect_ratio, ASPECT_RATIOS["16:9"])
     subtitle_settings = {
-        "style": "classic", "font-family": "Oswald Bold", "font-size": 80,
+        "style": "classic", "font-family": "Oswald Bold", "font-size": ratio["sub_font_size"],
         "position": "bottom-center", "line-color": "#CCCCCC", "word-color": "#FFFF00",
         "outline-color": "#000000", "outline-width": 8, "shadow-color": "#000000",
-        "shadow-offset": 6, "max-words-per-line": 4,
+        "shadow-offset": 6, "max-words-per-line": ratio["sub_max_words"],
     }
     scenes = []
     for i, s in enumerate(scenes_data, 1):
@@ -485,7 +505,7 @@ def build_json2video_payload(scenes_data, voice_id=None):
         scenes.append({"id": f"scene{i}", "comment": f"Scene {i}", "duration": "auto", "elements": elements})
     # Movie-level subtitle element — JSON2Video requires this at root, not per-scene
     movie_subtitles = {"id": "movie_subtitles", "type": "subtitles", "language": "en", "model": "default", "settings": subtitle_settings}
-    return {"resolution": "full-hd", "quality": "high", "elements": [movie_subtitles], "scenes": scenes}
+    return {"resolution": ratio["j2v"], "quality": "high", "elements": [movie_subtitles], "scenes": scenes}
 
 
 def submit_and_poll_json2video(payload):
@@ -585,7 +605,7 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None, v
                 with lock:
                     pipeline_state["phase"] = "rendering"
                     pipeline_state["message"] = f"Rendering Part {part_num} of {len(parts)} ({len(part)} scenes)..."
-                payload = build_json2video_payload(part, voice_id)
+                payload = build_json2video_payload(part, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
                 mp4_url = submit_and_poll_json2video(payload)
                 part_urls.append(mp4_url)
             with lock:
@@ -595,7 +615,7 @@ def run_pipeline(scenes, model="v1.6", resume_from=0, existing_processed=None, v
             with lock:
                 pipeline_state["phase"] = "rendering"
                 pipeline_state["message"] = "Submitting to JSON2Video for final render..."
-            payload = build_json2video_payload(processed, voice_id)
+            payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
             mp4_url = submit_and_poll_json2video(payload)
             with lock:
                 pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Video complete!")
@@ -627,7 +647,7 @@ def run_fix_scene(scene_index, scene, processed, model="v1.6", voice_id=None):
             if pipeline_state.get("scenes") and scene_index < len(pipeline_state["scenes"]):
                 pipeline_state["scenes"][scene_index].update(scene)
             pipeline_state.update(phase="rendering", processed=list(processed), message="Re-submitting all scenes to JSON2Video...")
-        payload = build_json2video_payload(processed, voice_id)
+        payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Fixed video complete!")
@@ -678,7 +698,7 @@ def run_fix_scenes(fixes, processed, model="v1.6", voice_id=None):
                 pipeline_state["message"] = f"Fixed scene {fix_num} of {total_fixes} selected"
         with lock:
             pipeline_state.update(phase="rendering", processed=list(processed), message="Re-submitting all scenes to JSON2Video...")
-        payload = build_json2video_payload(processed, voice_id)
+        payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, video_urls=[mp4_url], message="Batch fix complete!")
@@ -710,7 +730,7 @@ async def api_generate_scenes(request: Request, body: BiblicalGenerateInput):
         with lock:
             pipeline_state.update(phase="generating_scenes", message="Splitting scripture and generating scene visuals with Claude AI...",
                                   scenes=None, error=None, video_url=None, video_urls=[], processed=[],
-                                  book=body.book, chapter=body.chapter, model=body.model)
+                                  book=body.book, chapter=body.chapter, model=body.model, aspect_ratio=body.aspect_ratio)
 
         words_target = WORDS_PER_SCENE.get(body.model, 30)
         narration_chunks = split_scripture_into_scenes(body.text, words_target)
@@ -744,7 +764,7 @@ async def api_generate_video(request: Request, body: BiblicalScenesInput):
     scenes = body.scenes
     voice_id = resolve_voice(body.voice_id)
     with lock:
-        pipeline_state.update(scenes=scenes, model=model, voice_id=voice_id)
+        pipeline_state.update(scenes=scenes, model=model, voice_id=voice_id, aspect_ratio=body.aspect_ratio)
     log_event(request, "biblical_generate_video", model=model, scenes=len(scenes),
               voice=voice_id,
               words=sum(len((s.get("narration") or "").split()) for s in scenes))
@@ -773,7 +793,7 @@ async def api_generate(request: Request, body: BiblicalGenerateInput):
         with lock:
             pipeline_state.update(phase="generating_scenes", message="Splitting scripture and generating scene visuals with Claude AI...",
                                   scenes=None, error=None, video_url=None, video_urls=[], processed=[],
-                                  book=body.book, chapter=body.chapter, model=body.model, voice_id=voice_id)
+                                  book=body.book, chapter=body.chapter, model=body.model, aspect_ratio=body.aspect_ratio, voice_id=voice_id)
 
         words_target = WORDS_PER_SCENE.get(body.model, 30)
         narration_chunks = split_scripture_into_scenes(body.text, words_target)
@@ -834,6 +854,7 @@ async def api_fix_scene(request: Request, body: BiblicalFixSceneInput):
     voice_id = resolve_voice(body.voice_id)
     with lock:
         pipeline_state["voice_id"] = voice_id
+        pipeline_state["aspect_ratio"] = body.aspect_ratio
     log_event(request, "biblical_fix_scene", model=body.model, scene_index=body.scene_index,
               total_scenes=len(processed), voice=voice_id)
     thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), kwargs={"voice_id": voice_id}, daemon=True)
@@ -863,6 +884,7 @@ async def api_fix_scenes(request: Request, body: BiblicalFixScenesInput):
     voice_id = resolve_voice(body.voice_id)
     with lock:
         pipeline_state["voice_id"] = voice_id
+        pipeline_state["aspect_ratio"] = body.aspect_ratio
     log_event(request, "biblical_fix_scenes", model=body.model, fix_count=len(body.fixes),
               total_scenes=len(processed), voice=voice_id)
     thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), kwargs={"voice_id": voice_id}, daemon=True)

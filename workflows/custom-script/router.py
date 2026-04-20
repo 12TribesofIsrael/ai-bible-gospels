@@ -38,6 +38,16 @@ KLING_MODELS = {
     "o3": {"url": "https://fal.run/fal-ai/kling-video/o3/standard/image-to-video", "duration": "15"},
     "o3-pro": {"url": "https://fal.run/fal-ai/kling-video/o3/pro/image-to-video", "duration": "15"},
 }
+
+# fal's FLUX uses `portrait_16_9` as its label for a 9:16 (tall) canvas — not a typo.
+ASPECT_RATIOS = {
+    "16:9": {"flux": "landscape_16_9", "kling": "16:9", "j2v": "full-hd",
+             "sub_font_size": 80, "sub_max_words": 4},
+    "1:1":  {"flux": "square_hd",      "kling": "1:1",  "j2v": "instagram-feed",
+             "sub_font_size": 70, "sub_max_words": 3},
+    "9:16": {"flux": "portrait_16_9",  "kling": "9:16", "j2v": "instagram-story",
+             "sub_font_size": 64, "sub_max_words": 3},
+}
 JSON2VIDEO_URL = "https://api.json2video.com/v2/movies"
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 
@@ -49,6 +59,7 @@ VOICE_SPEED = 0.9
 # workflows/biblical-cinematic/server/biblical_pipeline.py and the README voice table.
 VOICES = [
     {"id": "NgBYGKDDq2Z8Hnhatgma", "name": "Pro Narrator (default)"},
+    {"id": "onwK4e9ZLuTAKqWW03F9", "name": "Daniel Steady Broadcaster"},
     {"id": "6OzrBCQf8cjERkYgzSg8", "name": "Young Jamal"},
     {"id": "T4sLxEj9xEGMREO21ACw", "name": "Tommy Israel"},
     {"id": "C8OtYB0OTgD7K0YWkg7y", "name": "William J"},
@@ -92,6 +103,7 @@ pipeline_state = {
     "processed": [],
     "previews": {},
     "model": "v3.0",
+    "aspect_ratio": "16:9",
     "voice_id": VOICE_ID,
 }
 
@@ -180,22 +192,26 @@ class ScriptInput(BaseModel):
 class ScenesInput(BaseModel):
     scenes: list
     model: str = "v3.0"
+    aspect_ratio: str = "16:9"
     voice_id: str = VOICE_ID
 
 class FixSceneInput(BaseModel):
     scene_index: int
     scene: dict
     model: str = "v3.0"
+    aspect_ratio: str = "16:9"
     voice_id: str = VOICE_ID
 
 class BatchFixInput(BaseModel):
     fixes: list  # [{scene_index: int, scene: dict}, ...]
     model: str = "v3.0"
+    aspect_ratio: str = "16:9"
     voice_id: str = VOICE_ID
 
 class PreviewScenesInput(BaseModel):
     fixes: list  # [{scene_index: int, scene: dict}, ...]
     model: str = "v3.0"
+    aspect_ratio: str = "16:9"
     voice_id: str = VOICE_ID
 
 
@@ -274,29 +290,33 @@ def generate_image(scene):
     prompt = scene["imagePrompt"]
     if scene.get("lighting"):
         prompt += f", {scene['lighting']}"
+    ratio = ASPECT_RATIOS.get(pipeline_state.get("aspect_ratio", "16:9"), ASPECT_RATIOS["16:9"])
     data = fal_queue_submit(FLUX_URL, {
         "prompt": prompt, "negative_prompt": NEGATIVE_PROMPT,
-        "image_size": "landscape_16_9", "num_inference_steps": 28, "num_images": 1,
+        "image_size": ratio["flux"], "num_inference_steps": 28, "num_images": 1,
     }, kind="flux", poll_seconds=5, max_wait_seconds=300)
     return data["images"][0]["url"]
 
 
 def generate_video(image_url, scene, model="v3.0"):
     kling = KLING_MODELS.get(model, KLING_MODELS["v3.0"])
+    ratio = ASPECT_RATIOS.get(pipeline_state.get("aspect_ratio", "16:9"), ASPECT_RATIOS["16:9"])
     data = fal_queue_submit(kling["url"], {
         "image_url": image_url, "prompt": scene.get("motion", "Slow cinematic camera movement"),
         "duration": kling["duration"], "cfg_scale": 0.5,
+        "aspect_ratio": ratio["kling"],
     }, kind="kling", poll_seconds=10, max_wait_seconds=1800)
     return data.get("video", {}).get("url") or data["data"]["video"]["url"]
 
 
-def build_json2video_payload(scenes_data, voice_id=None):
+def build_json2video_payload(scenes_data, voice_id=None, aspect_ratio="16:9"):
     voice = resolve_voice(voice_id)
+    ratio = ASPECT_RATIOS.get(aspect_ratio, ASPECT_RATIOS["16:9"])
     subtitle_settings = {
-        "style": "classic", "font-family": "Oswald Bold", "font-size": 80,
+        "style": "classic", "font-family": "Oswald Bold", "font-size": ratio["sub_font_size"],
         "position": "bottom-center", "line-color": "#CCCCCC", "word-color": "#FFFF00",
         "outline-color": "#000000", "outline-width": 8, "shadow-color": "#000000",
-        "shadow-offset": 6, "max-words-per-line": 4,
+        "shadow-offset": 6, "max-words-per-line": ratio["sub_max_words"],
     }
     movie_subtitles = {
         "id": "movie_subtitles", "type": "subtitles", "language": "en",
@@ -310,7 +330,7 @@ def build_json2video_payload(scenes_data, voice_id=None):
         if s.get("narration", "").strip():
             elements.append({"id": f"scene{i}_voice", "type": "voice", "text": s["narration"], "voice": voice, "model": "elevenlabs", "speed": VOICE_SPEED})
         scenes.append({"id": f"scene{i}", "comment": f"Scene {i}", "duration": "auto", "elements": elements})
-    return {"resolution": "full-hd", "quality": "high", "elements": [movie_subtitles], "scenes": scenes}
+    return {"resolution": ratio["j2v"], "quality": "high", "elements": [movie_subtitles], "scenes": scenes}
 
 
 def submit_and_poll_json2video(payload):
@@ -397,7 +417,7 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None, v
         with lock:
             pipeline_state["phase"] = "rendering"
             pipeline_state["message"] = "Submitting to JSON2Video for final render..."
-        payload = build_json2video_payload(processed, voice_id)
+        payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Video complete!")
@@ -431,7 +451,7 @@ def run_fix_scene(scene_index, scene, processed, model="v3.0", voice_id=None):
         processed[scene_index] = {"narration": scene["narration"], "video_url": video_url}
         with lock:
             pipeline_state.update(phase="rendering", processed=list(processed), message="Re-submitting all scenes to JSON2Video...")
-        payload = build_json2video_payload(processed, voice_id)
+        payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Fixed video complete!")
@@ -478,7 +498,7 @@ def run_fix_scenes(fixes, processed, model="v3.0", voice_id=None):
                 pipeline_state["processed"] = list(processed)
         with lock:
             pipeline_state.update(phase="rendering", message="Submitting all scenes to JSON2Video...")
-        payload = build_json2video_payload(processed, voice_id)
+        payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Batch fix complete!")
@@ -549,7 +569,7 @@ def run_approve_fixes(processed, voice_id=None):
         total = len(processed)
         with lock:
             pipeline_state.update(phase="rendering", message="Submitting approved scenes to JSON2Video...", error=None, video_url=None)
-        payload = build_json2video_payload(processed, voice_id)
+        payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Approved render complete!")
@@ -600,6 +620,7 @@ async def api_generate_video(request: Request, body: ScenesInput):
     with lock:
         pipeline_state["scenes"] = body.scenes
         pipeline_state["model"] = body.model
+        pipeline_state["aspect_ratio"] = body.aspect_ratio
         pipeline_state["voice_id"] = voice_id
     log_event(request, "custom_generate_video", model=body.model, scenes=len(body.scenes),
               voice=voice_id,
@@ -648,6 +669,7 @@ async def api_fix_scene(request: Request, body: FixSceneInput):
     voice_id = resolve_voice(body.voice_id)
     with lock:
         pipeline_state["voice_id"] = voice_id
+        pipeline_state["aspect_ratio"] = body.aspect_ratio
     log_event(request, "custom_fix_scene", model=body.model, scene_index=body.scene_index,
               total_scenes=len(processed), voice=voice_id)
     thread = threading.Thread(target=run_fix_scene, args=(body.scene_index, body.scene, list(processed), body.model), kwargs={"voice_id": voice_id}, daemon=True)
@@ -670,6 +692,7 @@ async def api_fix_scenes(request: Request, body: BatchFixInput):
     voice_id = resolve_voice(body.voice_id)
     with lock:
         pipeline_state["voice_id"] = voice_id
+        pipeline_state["aspect_ratio"] = body.aspect_ratio
     log_event(request, "custom_fix_scenes", model=body.model, fix_count=len(body.fixes),
               total_scenes=len(processed), voice=voice_id)
     thread = threading.Thread(target=run_fix_scenes, args=(body.fixes, list(processed), body.model), kwargs={"voice_id": voice_id}, daemon=True)
@@ -692,6 +715,7 @@ async def api_preview_scenes(request: Request, body: PreviewScenesInput):
     voice_id = resolve_voice(body.voice_id)
     with lock:
         pipeline_state["voice_id"] = voice_id
+        pipeline_state["aspect_ratio"] = body.aspect_ratio
     log_event(request, "custom_preview_scenes", model=body.model, fix_count=len(body.fixes),
               total_scenes=len(processed), voice=voice_id)
     thread = threading.Thread(target=run_preview_scenes, args=(body.fixes, list(processed), body.model), daemon=True)
@@ -863,6 +887,37 @@ Example: A channel trailer about the 12 Tribes of Israel, their scattering, and 
             <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-purple-500 peer-checked:bg-purple-500/10 transition-all">
               <div class="text-xs font-semibold text-white">O3 Standard</div>
               <div class="text-xs text-purple-400 mt-1">~$45/video</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Aspect ratio selector -->
+      <div class="mt-4 mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
+        <label class="block text-sm font-medium text-gray-300 mb-2">Aspect Ratio</label>
+        <div class="grid grid-cols-3 gap-3">
+          <label class="relative cursor-pointer">
+            <input type="radio" name="custom-aspect-ratio" value="16:9" class="peer sr-only" checked>
+            <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+              <div class="text-xs font-semibold text-white">LONG · 16:9</div>
+              <div class="text-xs text-gray-400 mt-1">YouTube / TV</div>
+              <div class="text-xs text-amber-400 mt-1">1920×1080</div>
+            </div>
+          </label>
+          <label class="relative cursor-pointer">
+            <input type="radio" name="custom-aspect-ratio" value="1:1" class="peer sr-only">
+            <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+              <div class="text-xs font-semibold text-white">MIDDLE · 1:1</div>
+              <div class="text-xs text-gray-400 mt-1">IG / FB Feed</div>
+              <div class="text-xs text-amber-400 mt-1">1080×1080</div>
+            </div>
+          </label>
+          <label class="relative cursor-pointer">
+            <input type="radio" name="custom-aspect-ratio" value="9:16" class="peer sr-only">
+            <div class="p-2 rounded-lg border-2 border-gray-600 peer-checked:border-amber-500 peer-checked:bg-amber-500/10 transition-all">
+              <div class="text-xs font-semibold text-white">SHORT · 9:16</div>
+              <div class="text-xs text-gray-400 mt-1">Reels / TikTok</div>
+              <div class="text-xs text-amber-400 mt-1">1080×1920</div>
             </div>
           </label>
         </div>
@@ -1055,6 +1110,7 @@ async function generateVideo() {
       body: JSON.stringify({
         scenes: currentScenes,
         model: document.querySelector('input[name="custom-kling-model"]:checked')?.value || 'v3.0',
+        aspect_ratio: document.querySelector('input[name="custom-aspect-ratio"]:checked')?.value || '16:9',
         voice_id: selectedCustomVoice(),
       })
     });
@@ -1266,7 +1322,12 @@ async function previewSelectedScenes() {
   try {
     const res = await fetch(API_PREFIX + '/api/preview-scenes', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fixes, voice_id: selectedCustomVoice()})
+      body: JSON.stringify({
+        fixes,
+        model: document.querySelector('input[name="custom-kling-model"]:checked')?.value || 'v3.0',
+        aspect_ratio: document.querySelector('input[name="custom-aspect-ratio"]:checked')?.value || '16:9',
+        voice_id: selectedCustomVoice(),
+      })
     });
     if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Preview failed'); }
     startPolling();
@@ -1313,7 +1374,12 @@ async function batchFixScenes() {
   try {
     const res = await fetch(API_PREFIX + '/api/fix-scenes', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fixes, voice_id: selectedCustomVoice()})
+      body: JSON.stringify({
+        fixes,
+        model: document.querySelector('input[name="custom-kling-model"]:checked')?.value || 'v3.0',
+        aspect_ratio: document.querySelector('input[name="custom-aspect-ratio"]:checked')?.value || '16:9',
+        voice_id: selectedCustomVoice(),
+      })
     });
     if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Batch fix failed'); }
     startPolling();
