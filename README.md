@@ -1,6 +1,6 @@
-# AI Bible Gospels
+# Anointed
 
-A personal AI video production platform. Paste in text — scripture or any script — and get back a fully produced, narrated cinematic video.
+AI video production platform at **anointed.app**. Paste in text — scripture or any script — and get back a fully produced, narrated cinematic video.
 
 Two production workflows run on a **unified web app** at http://localhost:8000:
 

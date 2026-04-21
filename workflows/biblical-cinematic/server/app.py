@@ -1,5 +1,5 @@
 """
-Biblical Cinematic Generator — Web Server
+Anointed — Web Server
 ==========================================
 Run:  python app.py
 URL:  http://localhost:8000
@@ -51,7 +51,7 @@ from biblical_text_processor_v2 import (
 from rate_limit import limiter, rate_limit_exceeded_handler, EXPENSIVE_LIMIT, MEDIUM_LIMIT
 from usage import log_event, get_summary
 
-app = FastAPI(title="Biblical Cinematic Generator")
+app = FastAPI(title="Anointed")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
@@ -76,7 +76,7 @@ if _AUTH_USER and _AUTH_PASS:
                     pass
             return StarletteResponse(
                 "Unauthorized", status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="AI Bible Gospels"'},
+                headers={"WWW-Authenticate": 'Basic realm="Anointed"'},
             )
 
     app.add_middleware(BasicAuthMiddleware)
@@ -756,7 +756,7 @@ LANDING_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Biblical Cinematic Generator</title>
+  <title>Anointed — Scripture Mode</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
@@ -791,7 +791,7 @@ LANDING_PAGE = """<!DOCTYPE html>
           class="text-xs text-purple-400 hover:text-purple-300 border border-purple-800 hover:border-purple-600 px-3 py-1.5 rounded-lg transition-colors">
           ▼ Post-Production
         </a>
-        <span class="text-xs text-gray-600">v13 · AI Bible Gospels</span>
+        <span class="text-xs text-gray-600">Anointed · v13</span>
       </div>
     </div>
   </nav>
@@ -2457,5 +2457,5 @@ if __name__ == "__main__":
     else:
         print("✓ JSON2Video API key configured — real-time tracking enabled\n")
 
-    print("Starting Biblical Cinematic Generator at http://localhost:8000\n")
+    print("Starting Anointed at http://localhost:8000\n")
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)

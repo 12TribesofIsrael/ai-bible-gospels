@@ -1,4 +1,4 @@
-# Biblical Cinematic Video Workflow
+# Anointed — Scripture Mode
 
 Generates professional 8–13 minute biblical cinematic videos from KJV scripture text.
 A web app handles text cleaning and review, then automatically triggers the n8n pipeline.
@@ -94,7 +94,7 @@ Adds: intro → main video → outro_1 → outro_2 → outro_3 → logo watermar
 ### Assets required in `assets/`
 ```
 assets/
-├── logo1.png       ← AI Bible Gospels logo (transparent PNG, centered crop)
+├── logo1.png       ← Anointed logo (transparent PNG, centered crop)
 ├── Into.mp4        ← Intro clip
 ├── outro_1.mp4     ← Outro part 1
 ├── outro_2.mp4     ← Outro part 2

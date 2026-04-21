@@ -789,7 +789,7 @@ CUSTOM_LANDING_HTML = """<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <title>Custom Script → Video | AI Bible Gospels</title>
+  <title>Anointed — Custom Script</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
@@ -821,7 +821,7 @@ CUSTOM_LANDING_HTML = """<!DOCTYPE html>
       <div class="text-amber-500 text-2xl px-4">✦</div>
       <a href="/" class="nav-tab px-5 py-4 text-sm text-gray-400 font-medium">Scripture Mode</a>
       <a href="/custom" class="nav-tab active px-5 py-4 text-sm font-medium">Custom Script Mode</a>
-      <span class="ml-auto text-xs text-gray-600 pr-4">AI Bible Gospels</span>
+      <span class="ml-auto text-xs text-gray-600 pr-4">Anointed</span>
     </div>
   </nav>
 
