@@ -353,7 +353,8 @@ The biblical server uses `find_dotenv()` to locate `.env` by walking up the dire
 
 The unified web app is deployed to **Modal.com** with Basic Auth protection.
 
-**Live URL:** `https://tribesofisrael--ai-bible-gospels-web.modal.run`
+**Canonical URL:** `https://anointed.app` (and `https://www.anointed.app`) — fronted by a Cloudflare Worker proxy. See [`ops/cloudflare-proxy/`](ops/cloudflare-proxy/) below.
+**Modal upstream URL:** `https://tribesofisrael--ai-bible-gospels-web.modal.run` — what the Worker forwards to. Hit this directly to bypass Cloudflare for debugging.
 - Scripture Mode: `/`
 - Custom Script Mode: `/custom/`
 
@@ -377,6 +378,32 @@ modal deploy modal_app.py
 - Container stays warm for 5 minutes (`scaledown_window=300`), timeout 30 minutes (`timeout=1800`)
 - Pipeline state persisted to Modal Volume (`ai-bible-gospels-data`) at `/data/pipeline_state.json` — survives container restarts
 - Redeploy updates code but warm containers keep old code — run `modal app stop ai-bible-gospels` before `modal deploy` to force refresh
+
+---
+
+## anointed.app — Cloudflare Worker Proxy
+
+The custom domain is served by a tiny Cloudflare Worker (`anointed-proxy`) that reverse-proxies to the Modal upstream. Why a Worker instead of native Modal custom domains: Modal's Custom Domains feature is gated behind a paid plan, this account is on Starter, and Cloudflare Free + a 12-line Worker handles the same job at $0.
+
+### Redeploy
+```bash
+cd ops/cloudflare-proxy
+npx wrangler deploy
+```
+First time on a new machine: `npx wrangler login` (OAuth, opens browser).
+
+### Key Files
+| File | Purpose |
+|---|---|
+| [ops/cloudflare-proxy/worker.js](ops/cloudflare-proxy/worker.js) | The proxy itself — rewrites `url.hostname` to the Modal upstream and forwards method/headers/body with `redirect: 'manual'` |
+| [ops/cloudflare-proxy/wrangler.toml](ops/cloudflare-proxy/wrangler.toml) | Worker name (`anointed-proxy`), routes (`anointed.app/*`, `www.anointed.app/*`), compat date |
+| [ops/cloudflare-proxy/README.md](ops/cloudflare-proxy/README.md) | Architecture, DNS setup, smoke-test command, gotchas |
+
+### Notes
+- DNS records on the `anointed.app` Cloudflare zone (both Proxied / orange cloud): `A anointed.app → 192.0.2.1` (placeholder; Worker route intercepts before any origin hit) + `CNAME www → anointed.app`.
+- `redirect: 'manual'` is deliberate — passes Modal's 3xx Basic Auth challenges through to the browser instead of having the Worker follow them internally.
+- The `anointed-proxy.ai-bible-gospels.workers.dev` URL is disabled (routes-only deployment). Add `workers_dev = true` to `wrangler.toml` and redeploy if you want it back as a fallback.
+- Smoke test after redeploy: `curl -v --ssl-no-revoke https://anointed.app/`
 
 ---
 

@@ -1,0 +1,8 @@
+name = "anointed-proxy"
+main = "worker.js"
+compatibility_date = "2026-04-29"
+
+routes = [
+  { pattern = "anointed.app/*", zone_name = "anointed.app" },
+  { pattern = "www.anointed.app/*", zone_name = "anointed.app" },
+]
