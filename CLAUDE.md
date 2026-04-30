@@ -335,7 +335,7 @@ See [.env.example](.env.example) for all keys. The `.env` file lives at the work
 | `FAL_KEY` | General pipeline (FLUX + Kling); **required in n8n env vars for v8.0** (FLUX image gen + Kling video) |
 | `N8N_WEBHOOK_URL` | Biblical web app → triggers n8n workflow |
 | `PERPLEXITY_API_KEY` | Reference only (configured inside n8n) |
-| `ELEVENLABS_API_KEY` | Reference only (configured inside n8n) |
+| `ELEVENLABS_API_KEY` | Server `/api/voice-preview` (5s TTS sample for the voice picker, cached on disk per voice_id). Also configured inside n8n for legacy v7 workflow. |
 | `JSON2VIDEO_API_KEY` | Biblical server `/api/status` + Custom Script pipeline — polls render progress + provides download URL |
 | `ANTHROPIC_API_KEY` | Custom Script pipeline — Claude AI scene generation |
 | `APP_USERNAME` | Modal deployment — Basic Auth username (optional, local dev skips auth) |
@@ -364,7 +364,7 @@ modal deploy modal_app.py
 ```
 
 ### Setup
-1. Create a Modal secret named `ai-bible-gospels` with: `FAL_KEY`, `JSON2VIDEO_API_KEY`, `ANTHROPIC_API_KEY`, `APP_USERNAME`, `APP_PASSWORD`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`
+1. Create a Modal secret named `ai-bible-gospels` with: `FAL_KEY`, `JSON2VIDEO_API_KEY`, `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `APP_USERNAME`, `APP_PASSWORD`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`
 2. Run `modal deploy modal_app.py`
 
 ### Key Files

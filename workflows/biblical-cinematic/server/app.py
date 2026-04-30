@@ -243,6 +243,53 @@ async def api_bible_chapter(book: str, chapter: str):
     raise HTTPException(status_code=404, detail=f"Book '{book}' not found")
 
 
+# ── Voice preview (ElevenLabs TTS, ~5s sample, cached on disk) ────────────────
+
+_VOICE_PREVIEW_TEXT = "In the beginning, God created the heavens and the earth."
+_VOICE_PREVIEW_DIR = (Path("/data") if Path("/data").exists() else Path(__file__).parent) / "voice_previews"
+_VOICE_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+_ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+
+
+@app.get("/api/voice-preview")
+async def api_voice_preview(voice_id: str):
+    """Return a ~5-second MP3 sample of the requested ElevenLabs voice. Each
+    voice_id is synthesized once and cached on disk, so repeat plays are free."""
+    vid = (voice_id or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", vid):
+        raise HTTPException(status_code=400, detail="Invalid voice_id")
+    cache_path = _VOICE_PREVIEW_DIR / f"{vid}.mp3"
+    if not cache_path.exists():
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=503, detail="ELEVENLABS_API_KEY not configured on server")
+        try:
+            resp = httpx.post(
+                _ELEVENLABS_TTS_URL.format(voice_id=vid),
+                headers={
+                    "xi-api-key": api_key,
+                    "accept": "audio/mpeg",
+                    "content-type": "application/json",
+                },
+                json={
+                    "text": _VOICE_PREVIEW_TEXT,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+                },
+                timeout=30.0,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ElevenLabs request failed: {e}")
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=f"ElevenLabs error: {resp.text[:200]}")
+        cache_path.write_bytes(resp.content)
+    return FileResponse(
+        cache_path,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "public, max-age=31536000"},
+    )
+
+
 # ── Cinematic Intro Generator ─────────────────────────────────────────────────
 
 _ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
@@ -996,10 +1043,15 @@ LANDING_PAGE = """<!DOCTYPE html>
         <!-- Voice selector -->
         <div class="mt-4 mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
           <label for="bible-voice" class="block text-sm font-medium text-gray-300 mb-2">ElevenLabs Voice</label>
-          <select id="bible-voice"
-            class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-amber-500">
-            <option value="">Loading voices...</option>
-          </select>
+          <div class="flex items-center gap-2">
+            <select id="bible-voice"
+              class="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-amber-500">
+              <option value="">Loading voices...</option>
+            </select>
+            <button type="button" id="bible-voice-play" onclick="playVoicePreview(selectedBibleVoice(), this)"
+              title="Play 5-second sample"
+              class="bg-gray-950 border border-gray-700 hover:border-amber-500 hover:text-amber-400 text-gray-300 rounded-lg w-10 h-10 flex items-center justify-center text-sm transition-colors">▶</button>
+          </div>
           <label for="bible-voice-custom" class="block text-xs text-gray-400 mt-3 mb-1">Or paste your own voice ID (overrides the dropdown)</label>
           <input id="bible-voice-custom" type="text" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM" spellcheck="false"
             class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-xs font-mono focus:outline-none focus:border-amber-500" />
@@ -2418,6 +2470,34 @@ LANDING_PAGE = """<!DOCTYPE html>
       const custom = (document.getElementById('bible-voice-custom')?.value || '').trim();
       if (custom) return custom;
       return document.getElementById('bible-voice')?.value || '';
+    }
+
+    // Voice preview — singleton audio so a second click stops the first.
+    let _voicePreviewAudio = null;
+    async function playVoicePreview(voiceId, btn) {
+      const id = (voiceId || '').trim();
+      if (!id) return;
+      if (_voicePreviewAudio && !_voicePreviewAudio.paused && _voicePreviewAudio.dataset.voiceId === id) {
+        _voicePreviewAudio.pause();
+        return;
+      }
+      if (_voicePreviewAudio) { try { _voicePreviewAudio.pause(); } catch(e) {} _voicePreviewAudio = null; }
+      const restore = () => { if (btn) { btn.textContent = '▶'; btn.disabled = false; } };
+      if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+      const audio = new Audio('/api/voice-preview?voice_id=' + encodeURIComponent(id));
+      audio.dataset.voiceId = id;
+      audio.onplay  = () => { if (btn) { btn.textContent = '⏸'; btn.disabled = false; } };
+      audio.onended = restore;
+      audio.onpause = restore;
+      audio.onerror = () => {
+        if (btn) {
+          btn.textContent = '⚠';
+          btn.disabled = false;
+          setTimeout(() => { if (btn.textContent === '⚠') btn.textContent = '▶'; }, 2000);
+        }
+      };
+      _voicePreviewAudio = audio;
+      try { await audio.play(); } catch(e) { restore(); }
     }
 
     // Auto-check files on page load

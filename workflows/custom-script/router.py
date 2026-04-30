@@ -925,10 +925,15 @@ Example: A channel trailer about the 12 Tribes of Israel, their scattering, and 
       <!-- Voice selector -->
       <div class="mt-4 mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
         <label for="custom-voice" class="block text-sm font-medium text-gray-300 mb-2">ElevenLabs Voice</label>
-        <select id="custom-voice"
-          class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-amber-500">
-          <option value="">Loading voices...</option>
-        </select>
+        <div class="flex items-center gap-2">
+          <select id="custom-voice"
+            class="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-amber-500">
+            <option value="">Loading voices...</option>
+          </select>
+          <button type="button" id="custom-voice-play" onclick="playVoicePreview(selectedCustomVoice(), this)"
+            title="Play 5-second sample"
+            class="bg-gray-950 border border-gray-700 hover:border-amber-500 hover:text-amber-400 text-gray-300 rounded-lg w-10 h-10 flex items-center justify-center text-sm transition-colors">▶</button>
+        </div>
         <label for="custom-voice-custom" class="block text-xs text-gray-400 mt-3 mb-1">Or paste your own voice ID (overrides the dropdown)</label>
         <input id="custom-voice-custom" type="text" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM" spellcheck="false"
           class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-xs font-mono focus:outline-none focus:border-amber-500" />
@@ -1456,6 +1461,35 @@ function selectedCustomVoice() {
   const custom = (document.getElementById('custom-voice-custom')?.value || '').trim();
   if (custom) return custom;
   return document.getElementById('custom-voice')?.value || '';
+}
+
+// Voice preview — singleton audio so a second click stops the first. Endpoint
+// is server-level (/api/voice-preview), not under /custom — same cache as Scripture mode.
+let _voicePreviewAudio = null;
+async function playVoicePreview(voiceId, btn) {
+  const id = (voiceId || '').trim();
+  if (!id) return;
+  if (_voicePreviewAudio && !_voicePreviewAudio.paused && _voicePreviewAudio.dataset.voiceId === id) {
+    _voicePreviewAudio.pause();
+    return;
+  }
+  if (_voicePreviewAudio) { try { _voicePreviewAudio.pause(); } catch(e) {} _voicePreviewAudio = null; }
+  const restore = () => { if (btn) { btn.textContent = '▶'; btn.disabled = false; } };
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  const audio = new Audio('/api/voice-preview?voice_id=' + encodeURIComponent(id));
+  audio.dataset.voiceId = id;
+  audio.onplay  = () => { if (btn) { btn.textContent = '⏸'; btn.disabled = false; } };
+  audio.onended = restore;
+  audio.onpause = restore;
+  audio.onerror = () => {
+    if (btn) {
+      btn.textContent = '⚠';
+      btn.disabled = false;
+      setTimeout(() => { if (btn.textContent === '⚠') btn.textContent = '▶'; }, 2000);
+    }
+  };
+  _voicePreviewAudio = audio;
+  try { await audio.play(); } catch(e) { restore(); }
 }
 
 // Load history + voices on page load
