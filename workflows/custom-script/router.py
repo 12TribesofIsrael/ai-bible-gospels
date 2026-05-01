@@ -65,6 +65,9 @@ VOICES = [
     {"id": "C8OtYB0OTgD7K0YWkg7y", "name": "William J"},
     {"id": "nJvj5shg2xu1GKGxqfkE", "name": "Hakeem"},
     {"id": "CVRACyqNcQefTlxMj9b", "name": "Lamar Lincoln"},
+    {"id": "h2sm0NbeIZXHBzJOMYcQ", "name": "Natasha Smooth Narrator"},
+    {"id": "OOk3INdXVLRmSaQoAX9D", "name": "Alicia Calm Storyteller"},
+    {"id": "6aDn1KB0hjpdcocrUkmq", "name": "Tiffany Warm Conversational"},
 ]
 def resolve_voice(voice_id):
     """Return the supplied voice id (catalog or user-entered) or the default
