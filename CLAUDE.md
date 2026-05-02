@@ -300,14 +300,18 @@ python workflows/custom-script/generate.py script.txt --post-produce # with intr
 ```
 
 ### Recovery (if pipeline fails mid-generation)
+Pipeline state is now persisted to a Modal Volume (`/data/custom_pipeline_state.json`) on every state transition. If a Modal container hops mid-render, `load_state()` flips the saved phase to `error` with a Retry-friendly message — the user can hit **Retry** in the browser to resume from the last completed scene. Mirrors `biblical_pipeline.py`'s pattern (added 2026-05-02).
+
+CLI fallbacks for the rare case where the persisted state itself is lost or pre-dates the fix:
 ```bash
-python workflows/custom-script/recover.py  # recovers completed videos from fal.ai history
+python workflows/custom-script/recover.py     # recovers completed videos from fal.ai history
+python workflows/custom-script/recover_run.py # one-shot recovery — see Key Files entry below
 ```
 
 ### Key Files
 | File | Purpose |
 |---|---|
-| [workflows/custom-script/router.py](workflows/custom-script/router.py) | FastAPI APIRouter — mounted in main app.py at `/custom`, all API routes + HTML UI (preview-first batch fix, stop, history) |
+| [workflows/custom-script/router.py](workflows/custom-script/router.py) | FastAPI APIRouter — mounted in main app.py at `/custom`, all API routes + HTML UI (preview-first batch fix, stop, history). Persists `pipeline_state` to `/data/custom_pipeline_state.json` via `save_state()` at every state transition; `load_state()` on module load flips mid-render phases to `error` so the UI shows Retry. |
 | [workflows/custom-script/server.py](workflows/custom-script/server.py) | Standalone FastAPI web UI (legacy, port 8500) — use the unified server instead |
 | [workflows/custom-script/generate.py](workflows/custom-script/generate.py) | CLI pipeline — script → Claude scenes → FLUX → Kling → JSON2Video |
 | [workflows/custom-script/recover.py](workflows/custom-script/recover.py) | Recovery — fetches completed Kling videos from fal.ai history API, regenerates only missing scenes |

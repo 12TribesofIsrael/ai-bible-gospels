@@ -82,6 +82,9 @@ def resolve_voice(voice_id):
 # Persistent history — survives Modal redeploys via /data volume (mirrors biblical_pipeline).
 _CUSTOM_HISTORY_DIR = Path("/data") if Path("/data").exists() else Path(__file__).parent
 HISTORY_FILE = _CUSTOM_HISTORY_DIR / "custom_render_history.json"
+# Disk-backed pipeline state — survives Modal container scale-down / restart so a
+# render that started on Container A can be picked up via Retry on Container B.
+STATE_FILE = _CUSTOM_HISTORY_DIR / "custom_pipeline_state.json"
 # Disk-backed stop flag — shared across Modal web containers via /data volume.
 # Fixes the case where /api/stop lands on a different container than the worker.
 STOP_FILE = _CUSTOM_HISTORY_DIR / "custom_stop.flag"
@@ -136,8 +139,39 @@ def clear_stop() -> None:
         print(f"[stop] Failed to clear flag: {e}")
 
 
+def save_state():
+    """Persist pipeline state to disk so it survives container restarts."""
+    try:
+        data = json.dumps(pipeline_state, default=str)
+        fd = os.open(str(STATE_FILE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+        os.write(fd, data.encode())
+        os.fsync(fd)
+        os.close(fd)
+    except Exception as e:
+        print(f"[state] Failed to save: {e}")
+
+
+def load_state():
+    """Restore pipeline state from disk on startup. Mid-render phases flip to
+    'error' so the user sees a Retry-friendly message instead of a stuck progress bar."""
+    global pipeline_state
+    if STATE_FILE.exists():
+        try:
+            saved = json.loads(STATE_FILE.read_text())
+            if saved.get("phase") in ("generating_media", "rendering", "generating_scenes", "previewing"):
+                done = len(saved.get("processed", []))
+                saved["phase"] = "error"
+                saved["error"] = "Container restarted mid-render. Use Retry to resume from where it left off."
+                saved["message"] = f"Interrupted — {done} scenes completed. Use Retry to resume."
+            pipeline_state.update(saved)
+            print(f"[state] Restored: {saved.get('phase')}, {len(saved.get('processed', []))} scenes processed")
+        except Exception as e:
+            print(f"[state] Failed to load: {e}")
+
+
 # Clear any stale stop flag left behind by a crashed/killed container.
 clear_stop()
+load_state()
 
 SCENE_GENERATION_PROMPT = """You are a cinematic video production expert for AI Bible Gospels — a channel revealing the hidden identity of the 12 Tribes of Israel through Scripture, history, and prophecy.
 
@@ -395,12 +429,14 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None, v
         with lock:
             pipeline_state.update(phase="generating_media", current_scene=resume_from, total_scenes=total,
                                   message=f"Generating media for {total} scenes...", processed=list(processed), error=None, video_url=None)
+            save_state()
         for i, scene in enumerate(scenes, 1):
             if i <= resume_from:
                 continue
             if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after scene {i-1}/{total}. Completed scenes preserved.")
+                    save_state()
                 return
             with lock:
                 pipeline_state["current_scene"] = i
@@ -409,6 +445,7 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None, v
             if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after scene {i-1}/{total}. Completed scenes preserved.")
+                    save_state()
                 return
             with lock:
                 pipeline_state["message"] = f"Scene {i}/{total} — Generating Kling {model} video..."
@@ -417,21 +454,26 @@ def run_pipeline(scenes, model="v3.0", resume_from=0, existing_processed=None, v
             with lock:
                 pipeline_state["processed"] = list(processed)
                 pipeline_state["message"] = f"Scene {i}/{total} complete"
+                save_state()
         with lock:
             pipeline_state["phase"] = "rendering"
             pipeline_state["message"] = "Submitting to JSON2Video for final render..."
+            save_state()
         payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Video complete!")
+            save_state()
         save_to_history(scenes, mp4_url, total)
     except Exception as e:
         if "Stopped by user" in str(e):
             with lock:
                 pipeline_state.update(phase="stopped", message="Stopped during render. Completed scenes preserved.")
+                save_state()
         else:
             with lock:
                 pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+                save_state()
             traceback.print_exc()
 
 
@@ -447,6 +489,7 @@ def run_fix_scene(scene_index, scene, processed, model="v3.0", voice_id=None):
                                   message=f"Fixing Scene {idx}/{total} — Generating FLUX image...", error=None, video_url=None)
             if pipeline_state["scenes"]:
                 pipeline_state["scenes"][scene_index].update(scene)
+            save_state()
         image_url = generate_image(scene)
         with lock:
             pipeline_state["message"] = f"Fixing Scene {idx}/{total} — Generating Kling {model} video..."
@@ -454,14 +497,17 @@ def run_fix_scene(scene_index, scene, processed, model="v3.0", voice_id=None):
         processed[scene_index] = {"narration": scene["narration"], "video_url": video_url}
         with lock:
             pipeline_state.update(phase="rendering", processed=list(processed), message="Re-submitting all scenes to JSON2Video...")
+            save_state()
         payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Fixed video complete!")
+            save_state()
         save_to_history(pipeline_state.get("scenes", []), mp4_url, total)
     except Exception as e:
         with lock:
             pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+            save_state()
         traceback.print_exc()
 
 
@@ -476,10 +522,12 @@ def run_fix_scenes(fixes, processed, model="v3.0", voice_id=None):
         with lock:
             pipeline_state.update(phase="generating_media", current_scene=0, total_scenes=total_fixes,
                                   message=f"Batch fixing {total_fixes} scenes...", error=None, video_url=None)
+            save_state()
         for fi, fix in enumerate(fixes):
             if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after fixing {fi}/{total_fixes} scenes.")
+                    save_state()
                 return
             idx = fix["scene_index"]
             scene = fix["scene"]
@@ -492,6 +540,7 @@ def run_fix_scenes(fixes, processed, model="v3.0", voice_id=None):
             if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after fixing {fi}/{total_fixes} scenes.")
+                    save_state()
                 return
             with lock:
                 pipeline_state["message"] = f"Fix {fi+1}/{total_fixes} — Scene {idx+1} — Kling {model} video..."
@@ -499,20 +548,25 @@ def run_fix_scenes(fixes, processed, model="v3.0", voice_id=None):
             processed[idx] = {"narration": scene["narration"], "video_url": video_url}
             with lock:
                 pipeline_state["processed"] = list(processed)
+                save_state()
         with lock:
             pipeline_state.update(phase="rendering", message="Submitting all scenes to JSON2Video...")
+            save_state()
         payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Batch fix complete!")
+            save_state()
         save_to_history(pipeline_state.get("scenes", []), mp4_url, total_scenes)
     except Exception as e:
         if "Stopped by user" in str(e):
             with lock:
                 pipeline_state.update(phase="stopped", message="Stopped during render.")
+                save_state()
         else:
             with lock:
                 pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+                save_state()
             traceback.print_exc()
 
 
@@ -525,10 +579,12 @@ def run_preview_scenes(fixes, processed, model="v3.0"):
         with lock:
             pipeline_state.update(phase="previewing", current_scene=0, total_scenes=total_fixes,
                                   message=f"Previewing {total_fixes} scenes...", error=None, video_url=None, previews={})
+            save_state()
         for fi, fix in enumerate(fixes):
             if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after previewing {fi}/{total_fixes} scenes.")
+                    save_state()
                 return
             idx = fix["scene_index"]
             scene = fix["scene"]
@@ -541,6 +597,7 @@ def run_preview_scenes(fixes, processed, model="v3.0"):
             if is_stop_requested():
                 with lock:
                     pipeline_state.update(phase="stopped", message=f"Stopped after previewing {fi}/{total_fixes} scenes.")
+                    save_state()
                 return
             with lock:
                 pipeline_state["message"] = f"Preview {fi+1}/{total_fixes} — Scene {idx+1} — Kling {model} video..."
@@ -551,15 +608,19 @@ def run_preview_scenes(fixes, processed, model="v3.0"):
                 # Update processed with new video for this scene
                 processed[idx] = {"narration": scene["narration"], "video_url": video_url}
                 pipeline_state["processed"] = list(processed)
+                save_state()
         with lock:
             pipeline_state.update(phase="preview_ready", message=f"Preview complete — {total_fixes} scenes ready for review.")
+            save_state()
     except Exception as e:
         if "Stopped by user" in str(e):
             with lock:
                 pipeline_state.update(phase="stopped", message="Stopped during preview.")
+                save_state()
         else:
             with lock:
                 pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+                save_state()
             traceback.print_exc()
 
 
@@ -572,18 +633,22 @@ def run_approve_fixes(processed, voice_id=None):
         total = len(processed)
         with lock:
             pipeline_state.update(phase="rendering", message="Submitting approved scenes to JSON2Video...", error=None, video_url=None)
+            save_state()
         payload = build_json2video_payload(processed, voice_id, pipeline_state.get("aspect_ratio", "16:9"))
         mp4_url = submit_and_poll_json2video(payload)
         with lock:
             pipeline_state.update(phase="done", video_url=mp4_url, message="Approved render complete!")
+            save_state()
         save_to_history(pipeline_state.get("scenes", []), mp4_url, total)
     except Exception as e:
         if "Stopped by user" in str(e):
             with lock:
                 pipeline_state.update(phase="stopped", message="Stopped during render.")
+                save_state()
         else:
             with lock:
                 pipeline_state.update(phase="error", error=str(e), message=f"Error: {e}")
+                save_state()
             traceback.print_exc()
 
 
@@ -601,13 +666,16 @@ async def api_generate_scenes(request: Request, body: ScriptInput):
     try:
         with lock:
             pipeline_state.update(phase="generating_scenes", message="Claude is generating scenes...", scenes=None, error=None, video_url=None)
+            save_state()
         scenes = generate_scenes_from_script(body.script)
         with lock:
             pipeline_state.update(phase="idle", scenes=scenes, message=f"Generated {len(scenes)} scenes")
+            save_state()
         return {"scenes": scenes}
     except Exception as e:
         with lock:
             pipeline_state.update(phase="error", error=str(e))
+            save_state()
         raise HTTPException(500, str(e))
 
 
@@ -625,6 +693,7 @@ async def api_generate_video(request: Request, body: ScenesInput):
         pipeline_state["model"] = body.model
         pipeline_state["aspect_ratio"] = body.aspect_ratio
         pipeline_state["voice_id"] = voice_id
+        save_state()
     log_event(request, "custom_generate_video", model=body.model, scenes=len(body.scenes),
               voice=voice_id,
               words=sum(len((s.get("narration") or "").split()) for s in body.scenes))
