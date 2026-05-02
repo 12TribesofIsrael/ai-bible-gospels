@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anointed — Transform Scripture into Cinema</title>
+  <meta name="description" content="Paste KJV scripture or any script. Anointed turns it into a professional cinematic video — narrated, scored, ready to publish." />
+  <meta property="og:title" content="Anointed — Transform Scripture into Cinema" />
+  <meta property="og:description" content="Paste KJV scripture or any script. Anointed turns it into a professional cinematic video." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://anointed.app/" />
+  <meta property="og:image" content="https://anointed.app/landing/hero-poster.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #030712; color: #f3f4f6; }
+    .title-font { font-family: 'Cinzel', serif; }
+
+    /* Hero video covers the entire hero section */
+    .hero-video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+    .hero-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(3,7,18,0.55) 0%, rgba(3,7,18,0.75) 60%, rgba(3,7,18,0.95) 100%);
+      z-index: 1;
+    }
+    .hero-content { position: relative; z-index: 2; }
+
+    .glow-amber {
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.2), 0 8px 30px rgba(245,158,11,0.15);
+    }
+    .glow-amber:hover {
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.4), 0 8px 40px rgba(245,158,11,0.35);
+    }
+
+    /* Demo cards */
+    .demo-card { transition: transform 0.4s ease, box-shadow 0.4s ease; }
+    .demo-card:hover { transform: translateY(-4px); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+
+    /* FAQ */
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] .faq-arrow { transform: rotate(180deg); }
+    .faq-arrow { transition: transform 0.2s ease; }
+
+    /* Subtle fade-in on scroll-into-view */
+    .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.8s ease, transform 0.8s ease; }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+    /* Smooth-scroll for nav anchors */
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100">
+
+  <!-- ── Sticky Nav ── -->
+  <nav class="fixed top-0 inset-x-0 z-50 border-b border-gray-900/50 backdrop-blur-md bg-gray-950/70">
+    <div class="max-w-6xl mx-auto flex items-center px-6 py-4">
+      <a href="/" class="flex items-center gap-2 text-amber-500">
+        <span class="text-2xl">✦</span>
+        <span class="title-font text-xl font-bold tracking-wide text-white">Anointed</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 ml-12 text-sm text-gray-300">
+        <a href="#how" class="hover:text-amber-400 transition">How it works</a>
+        <a href="#examples" class="hover:text-amber-400 transition">Examples</a>
+        <a href="#faq" class="hover:text-amber-400 transition">FAQ</a>
+      </div>
+      <div class="ml-auto">
+        <a href="/app" class="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-5 py-2.5 rounded-lg text-sm transition glow-amber">
+          Open the App →
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ── -->
+  <section class="relative h-screen min-h-[640px] flex items-center justify-center overflow-hidden">
+    <video
+      class="hero-video"
+      autoplay muted loop playsinline preload="auto"
+      poster="/landing/hero-poster.jpg"
+      aria-hidden="true">
+      <source src="/landing/hero-loop.mp4" type="video/mp4" />
+    </video>
+    <div class="hero-overlay"></div>
+
+    <div class="hero-content max-w-4xl mx-auto text-center px-6">
+      <p class="text-amber-400 text-sm font-medium tracking-[0.2em] uppercase mb-6">AI Cinematic Video for Scripture &amp; Stories</p>
+      <h1 class="title-font text-5xl md:text-7xl font-bold text-white mb-6 leading-tight drop-shadow-2xl">
+        Transform Scripture<br/>into Cinema
+      </h1>
+      <p class="text-lg md:text-xl text-gray-200 max-w-2xl mx-auto mb-10 leading-relaxed">
+        Paste a chapter of KJV scripture — or any script. In about 15 minutes you'll have a fully narrated, scored, cinematic video ready for YouTube, Instagram, or TikTok.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="/app" class="bg-amber-500 hover:bg-amber-400 text-black font-bold px-8 py-4 rounded-lg text-base transition glow-amber">
+          Open Scripture Mode →
+        </a>
+        <a href="/custom" class="bg-gray-900/80 hover:bg-gray-800 border border-gray-700 hover:border-amber-600 text-white font-semibold px-8 py-4 rounded-lg text-base transition">
+          Try Custom Script
+        </a>
+      </div>
+      <p class="text-xs text-gray-400 mt-8 tracking-wide">~$5–7 per video · 12–18 minute render · YouTube · Reels · Shorts · TikTok</p>
+    </div>
+
+    <!-- Scroll cue -->
+    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 text-gray-400 animate-bounce">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+    </div>
+  </section>
+
+  <!-- ── How it works ── -->
+  <section id="how" class="py-24 px-6 border-t border-gray-900">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16 fade-in">
+        <p class="text-amber-400 text-xs font-semibold tracking-[0.2em] uppercase mb-3">How it works</p>
+        <h2 class="title-font text-4xl md:text-5xl font-bold text-white mb-4">Three steps. Fifteen minutes.</h2>
+        <p class="text-gray-400 max-w-xl mx-auto">No editing software, no After Effects, no hiring out. Anointed does the cinematography, narration, and scoring for you.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Step 1 -->
+        <div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-7 fade-in">
+          <div class="text-amber-500 title-font text-3xl font-bold mb-4">01</div>
+          <h3 class="text-xl font-semibold text-white mb-3">Paste your text</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Drop in a chapter of KJV scripture from the built-in Bible picker, or paste any script — a YouTube intro, a sermon outline, a story.</p>
+        </div>
+        <!-- Step 2 -->
+        <div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-7 fade-in">
+          <div class="text-amber-500 title-font text-3xl font-bold mb-4">02</div>
+          <h3 class="text-xl font-semibold text-white mb-3">Review the scenes</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Claude AI breaks your text into cinematic scenes — image prompt, motion, lighting, narration. Edit anything before you spend a credit.</p>
+        </div>
+        <!-- Step 3 -->
+        <div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-7 fade-in">
+          <div class="text-amber-500 title-font text-3xl font-bold mb-4">03</div>
+          <h3 class="text-xl font-semibold text-white mb-3">Render &amp; download</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">FLUX renders each frame, Kling animates the motion, and JSON2Video stitches it all with ElevenLabs narration. Download in 16:9, 1:1, or 9:16.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Examples ── -->
+  <section id="examples" class="py-24 px-6 bg-gray-900/30 border-t border-gray-900">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-14 fade-in">
+        <p class="text-amber-400 text-xs font-semibold tracking-[0.2em] uppercase mb-3">Examples</p>
+        <h2 class="title-font text-4xl md:text-5xl font-bold text-white mb-4">See it in motion</h2>
+        <p class="text-gray-400 max-w-xl mx-auto">Real output from the pipeline — no edits, no post.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- Sample 1 -->
+        <div class="demo-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-in">
+          <div class="aspect-video bg-black">
+            <video
+              class="w-full h-full object-cover"
+              autoplay muted loop playsinline preload="metadata"
+              poster="/landing/sample-1-poster.jpg">
+              <source src="/landing/sample-1.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="p-5">
+            <p class="text-xs text-amber-400 tracking-wide font-semibold mb-1">SCRIPTURE MODE</p>
+            <h3 class="text-lg font-semibold text-white mb-1">Genesis · Cinematic excerpt</h3>
+            <p class="text-sm text-gray-400">FLUX + Kling v3 motion · 16:9 · ElevenLabs narration</p>
+          </div>
+        </div>
+        <!-- Sample 2 -->
+        <div class="demo-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-in">
+          <div class="aspect-video bg-black">
+            <video
+              class="w-full h-full object-cover"
+              autoplay muted loop playsinline preload="metadata"
+              poster="/landing/sample-2-poster.jpg">
+              <source src="/landing/sample-2.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="p-5">
+            <p class="text-xs text-amber-400 tracking-wide font-semibold mb-1">CUSTOM SCRIPT MODE</p>
+            <h3 class="text-lg font-semibold text-white mb-1">Channel trailer · Cinematic excerpt</h3>
+            <p class="text-sm text-gray-400">Any script, any length · 16:9 · Auto-scene generation</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FAQ ── -->
+  <section id="faq" class="py-24 px-6 border-t border-gray-900">
+    <div class="max-w-3xl mx-auto">
+      <div class="text-center mb-12 fade-in">
+        <p class="text-amber-400 text-xs font-semibold tracking-[0.2em] uppercase mb-3">FAQ</p>
+        <h2 class="title-font text-4xl md:text-5xl font-bold text-white">Common questions</h2>
+      </div>
+
+      <div class="space-y-3">
+        <details class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 fade-in">
+          <summary class="flex items-center justify-between text-white font-semibold">
+            <span>How much does each video cost to produce?</span>
+            <svg class="faq-arrow w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="text-gray-400 text-sm mt-4 leading-relaxed">A typical 12–18 minute biblical chapter runs around <strong class="text-amber-400">$5–7</strong> in API costs (FLUX images, Kling motion, ElevenLabs narration, JSON2Video assembly). Shorter custom scripts can run as low as $2–3.</p>
+        </details>
+
+        <details class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 fade-in">
+          <summary class="flex items-center justify-between text-white font-semibold">
+            <span>How long does a render take?</span>
+            <svg class="faq-arrow w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="text-gray-400 text-sm mt-4 leading-relaxed">Most videos finish in <strong class="text-amber-400">12–18 minutes</strong>. Long chapters (over 900 words) are auto-split into two parts so they keep moving even on slower scenes. You can stop the render mid-flight to save credits and resume from where it stopped.</p>
+        </details>
+
+        <details class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 fade-in">
+          <summary class="flex items-center justify-between text-white font-semibold">
+            <span>What output formats can I download?</span>
+            <svg class="faq-arrow w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="text-gray-400 text-sm mt-4 leading-relaxed">Pick the aspect ratio before you render: <strong class="text-amber-400">16:9</strong> (YouTube), <strong class="text-amber-400">1:1</strong> (Instagram feed), or <strong class="text-amber-400">9:16</strong> (Reels, Shorts, TikTok). Every render is delivered as a clean MP4 with word-level subtitles.</p>
+        </details>
+
+        <details class="bg-gray-900/60 border border-gray-800 rounded-xl p-5 fade-in">
+          <summary class="flex items-center justify-between text-white font-semibold">
+            <span>Who owns the video?</span>
+            <svg class="faq-arrow w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="text-gray-400 text-sm mt-4 leading-relaxed">You do. Anointed never claims rights to your output. Upload it to YouTube, sell it, license it, embed it in a sermon — it's yours.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer CTA ── -->
+  <section class="py-24 px-6 border-t border-gray-900">
+    <div class="max-w-3xl mx-auto text-center fade-in">
+      <h2 class="title-font text-4xl md:text-5xl font-bold text-white mb-5">Ready to make your first video?</h2>
+      <p class="text-gray-400 mb-10">Open the app and have a finished cinematic in under 20 minutes.</p>
+      <a href="/app" class="inline-block bg-amber-500 hover:bg-amber-400 text-black font-bold px-10 py-5 rounded-lg text-lg transition glow-amber">
+        Open Scripture Mode →
+      </a>
+      <p class="text-xs text-gray-600 mt-8">Or try <a href="/custom" class="text-amber-400 hover:text-amber-300">Custom Script Mode</a> for non-biblical scripts</p>
+    </div>
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer class="border-t border-gray-900 py-10 px-6">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+      <div class="flex items-center gap-2">
+        <span class="text-amber-500">✦</span>
+        <span class="title-font font-semibold text-gray-300">Anointed</span>
+        <span class="text-gray-700">·</span>
+        <span class="text-xs">v13</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="/app" class="hover:text-amber-400 transition">Scripture Mode</a>
+        <a href="/custom" class="hover:text-amber-400 transition">Custom Script</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Fade-in on scroll
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+    // Hero video iOS autoplay nudge — some Safari builds need a play() call after metadata loads
+    const heroVid = document.querySelector('.hero-video');
+    if (heroVid) {
+      heroVid.addEventListener('loadedmetadata', () => {
+        heroVid.play().catch(() => {});
+      });
+    }
+  </script>
+
+</body>
+</html>

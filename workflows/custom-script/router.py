@@ -890,8 +890,8 @@ CUSTOM_LANDING_HTML = """<!DOCTYPE html>
   <!-- Navigation -->
   <nav class="border-b border-gray-800 bg-gray-950 sticky top-0 z-50">
     <div class="max-w-5xl mx-auto flex items-center">
-      <div class="text-amber-500 text-2xl px-4">✦</div>
-      <a href="/" class="nav-tab px-5 py-4 text-sm text-gray-400 font-medium">Scripture Mode</a>
+      <a href="/" class="text-amber-500 text-2xl px-4 hover:text-amber-400 transition-colors" title="Home">✦</a>
+      <a href="/app" class="nav-tab px-5 py-4 text-sm text-gray-400 font-medium">Scripture Mode</a>
       <a href="/custom" class="nav-tab active px-5 py-4 text-sm font-medium">Custom Script Mode</a>
       <span class="ml-auto text-xs text-gray-600 pr-4">Anointed</span>
     </div>

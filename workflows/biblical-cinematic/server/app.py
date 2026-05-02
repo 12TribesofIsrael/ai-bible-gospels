@@ -63,8 +63,16 @@ if _AUTH_USER and _AUTH_PASS:
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.responses import Response as StarletteResponse
 
+    # Public surfaces — marketing landing + its static assets — must be
+    # reachable without Basic Auth so cold visitors see the value prop.
+    _PUBLIC_PATHS = {"/", "/favicon.ico", "/robots.txt"}
+    _PUBLIC_PREFIXES = ("/landing/",)
+
     class BasicAuthMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request, call_next):
+            path = request.url.path
+            if path in _PUBLIC_PATHS or any(path.startswith(p) for p in _PUBLIC_PREFIXES):
+                return await call_next(request)
             auth = request.headers.get("Authorization")
             if auth and auth.startswith("Basic "):
                 try:
@@ -80,7 +88,7 @@ if _AUTH_USER and _AUTH_PASS:
             )
 
     app.add_middleware(BasicAuthMiddleware)
-    print("Basic Auth enabled")
+    print("Basic Auth enabled (public: /, /landing/*, /favicon.ico, /robots.txt)")
 
 # Mount custom script router
 try:
@@ -830,8 +838,8 @@ LANDING_PAGE = """<!DOCTYPE html>
   <!-- Navigation -->
   <nav class="border-b border-gray-800 bg-gray-950 sticky top-0 z-50">
     <div class="max-w-4xl mx-auto flex items-center">
-      <div class="text-amber-500 text-2xl px-4">✦</div>
-      <a href="/" class="nav-tab active px-5 py-4 text-sm font-medium">Scripture Mode</a>
+      <a href="/" class="text-amber-500 text-2xl px-4 hover:text-amber-400 transition-colors" title="Home">✦</a>
+      <a href="/app" class="nav-tab active px-5 py-4 text-sm font-medium">Scripture Mode</a>
       <a href="/custom" class="nav-tab px-5 py-4 text-sm text-gray-400 font-medium">Custom Script Mode</a>
       <div class="ml-auto flex items-center gap-4 pr-4">
         <a href="#step4" onclick="document.getElementById('step4').scrollIntoView({behavior:'smooth'}); return false;"
@@ -2508,8 +2516,49 @@ LANDING_PAGE = """<!DOCTYPE html>
 </html>"""
 
 
+# ── Marketing landing page (public) ──────────────────────────────────────────
+# Locate landingpage/web/ — Modal bakes it at /app/landingpage/web,
+# locally we walk up 4 levels from this file (server → biblical-cinematic → workflows → repo root)
+if os.getenv("DEPLOYED"):
+    _LANDING_DIR = Path("/app/landingpage/web")
+else:
+    _LANDING_DIR = Path(__file__).parent.parent.parent.parent / "landingpage" / "web"
+
+_LANDING_HTML_PATH = _LANDING_DIR / "index.html"
+_LANDING_ASSET_WHITELIST = {
+    "hero-loop.mp4", "sample-1.mp4", "sample-2.mp4",
+    "hero-poster.jpg", "sample-1-poster.jpg", "sample-2-poster.jpg",
+}
+
+
 @app.get("/", response_class=HTMLResponse)
-async def landing_page():
+async def landing_marketing():
+    """Public marketing landing page. Falls back to the app if assets are missing."""
+    if _LANDING_HTML_PATH.exists():
+        return HTMLResponse(content=_LANDING_HTML_PATH.read_text(encoding="utf-8"))
+    # Fallback: if landing assets weren't deployed, show the tool directly
+    return HTMLResponse(content=LANDING_PAGE)
+
+
+@app.get("/landing/{filename}")
+async def landing_asset(filename: str):
+    """Serves whitelisted videos and posters used by the marketing landing page."""
+    if filename not in _LANDING_ASSET_WHITELIST:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    path = _LANDING_DIR / filename
+    if not path.exists():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    media_type = "video/mp4" if filename.endswith(".mp4") else "image/jpeg"
+    return FileResponse(
+        path,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@app.get("/app", response_class=HTMLResponse)
+async def app_tool_page():
+    """The Scripture Mode tool itself. Was at `/`, demoted to `/app` for the marketing site."""
     return HTMLResponse(content=LANDING_PAGE)
 
 

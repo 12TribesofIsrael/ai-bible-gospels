@@ -31,6 +31,10 @@ image = (
         "workflows/custom-script",
         remote_path="/app/workflows/custom-script",
     )
+    .add_local_dir(
+        "landingpage/web",
+        remote_path="/app/landingpage/web",
+    )
 )
 
 

@@ -31,6 +31,11 @@ workflows/biblical-cinematic/scripts/.youtube_token.json
 *.mp3
 *.wav
 
+# Exception: landing-page web assets (compressed, ~5 MB total) ship with the repo
+# so a fresh clone can `modal deploy` without re-running ffmpeg.
+# Raw source masters in landingpage/ (P.mp4, 1.mp4, 2.mp4, z.mp4) stay ignored.
+!landingpage/web/*.mp4
+
 # OS
 .DS_Store
 Thumbs.db
