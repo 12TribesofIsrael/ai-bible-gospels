@@ -2571,20 +2571,20 @@ import db as _db_mod  # imported here to keep top-of-file imports unchanged
 
 _RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 _WAITLIST_NOTIFY_EMAIL = "aibiblegospels444@gmail.com"
+_WAITLIST_FROM = "Anointed <hello@anointed.app>"
+_YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@AIBibleGospels"
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _send_waitlist_notification(email: str, ip: str, source: str) -> None:
-    """Fire-and-forget notification to the project inbox via Resend.
-
-    Logs and swallows any failure — Supabase row is the source of truth, the
-    email is just a nicety for instant awareness.
-    """
+def _resend_send(to: list[str], subject: str, html: str, reply_to: Optional[str] = None) -> None:
+    """Tiny wrapper around the Resend HTTP API. Swallows all errors."""
     if not _RESEND_API_KEY:
-        print(f"[waitlist] RESEND_API_KEY not set — skipping notification email for {email}")
+        print(f"[waitlist] RESEND_API_KEY not set — skipping email to {to}")
         return
     try:
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        payload = {"from": _WAITLIST_FROM, "to": to, "subject": subject, "html": html}
+        if reply_to:
+            payload["reply_to"] = reply_to
         with httpx.Client(timeout=10.0) as client:
             r = client.post(
                 "https://api.resend.com/emails",
@@ -2592,25 +2592,51 @@ def _send_waitlist_notification(email: str, ip: str, source: str) -> None:
                     "Authorization": f"Bearer {_RESEND_API_KEY}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "from": "Anointed Waitlist <onboarding@resend.dev>",
-                    "to": [_WAITLIST_NOTIFY_EMAIL],
-                    "subject": f"New beta signup: {email}",
-                    "html": (
-                        f"<h2 style='font-family:sans-serif'>New Anointed waitlist signup</h2>"
-                        f"<p style='font-family:sans-serif;font-size:16px'>"
-                        f"<strong>{email}</strong></p>"
-                        f"<p style='font-family:sans-serif;color:#666;font-size:13px'>"
-                        f"Source: {source}<br>IP: {ip}<br>Time: {ts}</p>"
-                        f"<p style='font-family:sans-serif;color:#888;font-size:12px;margin-top:24px'>"
-                        f"View the full waitlist at "
-                        f"<a href='https://anointed.app/admin/waitlist'>anointed.app/admin/waitlist</a></p>"
-                    ),
-                },
+                json=payload,
             )
             r.raise_for_status()
     except Exception as e:
-        print(f"[waitlist] Resend notification failed: {e}")
+        print(f"[waitlist] Resend send to {to} failed: {e}")
+
+
+def _send_waitlist_notification(email: str, ip: str, source: str) -> None:
+    """Fire-and-forget notification to the project inbox via Resend."""
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    html = (
+        f"<h2 style='font-family:sans-serif'>New Anointed waitlist signup</h2>"
+        f"<p style='font-family:sans-serif;font-size:16px'><strong>{email}</strong></p>"
+        f"<p style='font-family:sans-serif;color:#666;font-size:13px'>"
+        f"Source: {source}<br>IP: {ip}<br>Time: {ts}</p>"
+        f"<p style='font-family:sans-serif;color:#888;font-size:12px;margin-top:24px'>"
+        f"View the full waitlist at "
+        f"<a href='https://anointed.app/admin/waitlist'>anointed.app/admin/waitlist</a></p>"
+    )
+    _resend_send([_WAITLIST_NOTIFY_EMAIL], f"New beta signup: {email}", html)
+
+
+def _send_signer_confirmation(email: str) -> None:
+    """Welcome email to the person who signed up — step 2 of the beta ROI flow."""
+    html = (
+        f"<div style='font-family:sans-serif;max-width:560px;margin:0 auto;color:#222'>"
+        f"<h2 style='font-size:22px;margin-bottom:8px'>You're on the list 🙏</h2>"
+        f"<p style='font-size:16px;line-height:1.5'>"
+        f"Thanks for joining the Anointed beta. You'll get your private invite link "
+        f"in the next few days — pick any chapter of scripture and we'll turn it into "
+        f"a cinematic short for you.</p>"
+        f"<p style='font-size:16px;line-height:1.5'>"
+        f"While you wait, here's what we've already built — full chapters of scripture "
+        f"as cinematic videos:</p>"
+        f"<p style='margin:24px 0'>"
+        f"<a href='{_YOUTUBE_CHANNEL_URL}' "
+        f"style='background:#5b3df5;color:#fff;padding:12px 20px;border-radius:8px;"
+        f"text-decoration:none;font-weight:600'>Watch on YouTube →</a></p>"
+        f"<p style='font-size:14px;color:#666;line-height:1.5;margin-top:32px'>"
+        f"Reply to this email if you have a specific chapter you want to see first — "
+        f"we read every reply.</p>"
+        f"<p style='font-size:13px;color:#999;margin-top:24px'>— Thomas, Anointed</p>"
+        f"</div>"
+    )
+    _resend_send([email], "You're on the Anointed waitlist", html, reply_to=_WAITLIST_NOTIFY_EMAIL)
 
 
 @app.post("/api/waitlist")
@@ -2637,6 +2663,7 @@ async def api_waitlist_signup(request: Request, req: WaitlistRequest):
         print(f"[waitlist] Supabase unconfigured — signup not persisted: {email}")
 
     _send_waitlist_notification(email, ip, "landing-page")
+    _send_signer_confirmation(email)
     return {"status": "ok",
             "message": "You're on the list. We'll send your private link soon."}
 
