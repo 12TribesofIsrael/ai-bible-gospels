@@ -222,6 +222,10 @@ class UploadRequest(BaseModel):
     scripture: str
 
 
+class WaitlistRequest(BaseModel):
+    email: str
+
+
 # ── Bible Selector API ────────────────────────────────────────────────────────
 
 @app.get("/api/bible/books")
@@ -2560,6 +2564,92 @@ async def landing_asset(filename: str):
 async def app_tool_page():
     """The Scripture Mode tool itself. Was at `/`, demoted to `/app` for the marketing site."""
     return HTMLResponse(content=LANDING_PAGE)
+
+
+# ── Waitlist signup (public) ─────────────────────────────────────────────────
+import db as _db_mod  # imported here to keep top-of-file imports unchanged
+
+_RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+_WAITLIST_NOTIFY_EMAIL = "aibiblegospels444@gmail.com"
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _send_waitlist_notification(email: str, ip: str, source: str) -> None:
+    """Fire-and-forget notification to the project inbox via Resend.
+
+    Logs and swallows any failure — Supabase row is the source of truth, the
+    email is just a nicety for instant awareness.
+    """
+    if not _RESEND_API_KEY:
+        print(f"[waitlist] RESEND_API_KEY not set — skipping notification email for {email}")
+        return
+    try:
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        with httpx.Client(timeout=10.0) as client:
+            r = client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {_RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": "Anointed Waitlist <onboarding@resend.dev>",
+                    "to": [_WAITLIST_NOTIFY_EMAIL],
+                    "subject": f"New beta signup: {email}",
+                    "html": (
+                        f"<h2 style='font-family:sans-serif'>New Anointed waitlist signup</h2>"
+                        f"<p style='font-family:sans-serif;font-size:16px'>"
+                        f"<strong>{email}</strong></p>"
+                        f"<p style='font-family:sans-serif;color:#666;font-size:13px'>"
+                        f"Source: {source}<br>IP: {ip}<br>Time: {ts}</p>"
+                        f"<p style='font-family:sans-serif;color:#888;font-size:12px;margin-top:24px'>"
+                        f"View the full waitlist at "
+                        f"<a href='https://anointed.app/admin/waitlist'>anointed.app/admin/waitlist</a></p>"
+                    ),
+                },
+            )
+            r.raise_for_status()
+    except Exception as e:
+        print(f"[waitlist] Resend notification failed: {e}")
+
+
+@app.post("/api/waitlist")
+@limiter.limit(MEDIUM_LIMIT)
+async def api_waitlist_signup(request: Request, req: WaitlistRequest):
+    """Public waitlist signup. Stores email in Supabase + emails admin via Resend."""
+    email = req.email.strip().lower()
+    if not email or not _EMAIL_RE.match(email) or len(email) > 254:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+
+    xff = request.headers.get("x-forwarded-for")
+    ip = (xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown"))
+    user_agent = (request.headers.get("user-agent") or "")[:512]
+
+    result = _db_mod.insert_waitlist(email=email, ip=ip, user_agent=user_agent, source="landing-page")
+
+    if result == "duplicate":
+        return {"status": "already_signed_up",
+                "message": "You're already on the list — we'll be in touch."}
+    if result == "error":
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
+    if result == "unconfigured":
+        # No Supabase wired up — still notify admin so signups aren't lost
+        print(f"[waitlist] Supabase unconfigured — signup not persisted: {email}")
+
+    _send_waitlist_notification(email, ip, "landing-page")
+    return {"status": "ok",
+            "message": "You're on the list. We'll send your private link soon."}
+
+
+@app.get("/admin/waitlist")
+async def admin_waitlist():
+    """View all waitlist signups. Gated by Basic Auth when APP_USERNAME/PASSWORD set."""
+    rows = _db_mod.list_waitlist(limit=1000)
+    if rows is None:
+        return JSONResponse(
+            {"error": "Supabase not configured — waitlist storage unavailable.",
+             "configured": False}, status_code=503)
+    return {"configured": True, "count": len(rows), "signups": rows}
 
 
 @app.get("/admin/usage")

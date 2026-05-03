@@ -67,3 +67,18 @@ create table if not exists public.usage_events (
 create index if not exists usage_events_ip_created_idx   on public.usage_events (ip, created_at desc);
 create index if not exists usage_events_user_created_idx on public.usage_events (user_id, created_at desc);
 create index if not exists usage_events_event_idx        on public.usage_events (event);
+
+-- ---------------------------------------------------------------------------
+-- waitlist — beta signup capture from the marketing landing page
+-- ---------------------------------------------------------------------------
+create table if not exists public.waitlist (
+    id          uuid primary key default gen_random_uuid(),
+    email       text not null unique,
+    source      text not null default 'landing-page',  -- where the signup came from
+    ip          text,
+    user_agent  text,
+    invited_at  timestamptz,                            -- set when access link is sent
+    created_at  timestamptz not null default now()
+);
+
+create index if not exists waitlist_created_at_idx on public.waitlist (created_at desc);

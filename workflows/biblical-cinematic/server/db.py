@@ -65,6 +65,48 @@ def insert_usage_event(ip: str, event: str, user_id: Optional[str] = None, **fie
         print(f"[db] insert_usage_event failed: {e}")
 
 
+def insert_waitlist(email: str, ip: Optional[str] = None, user_agent: Optional[str] = None,
+                     source: str = "landing-page") -> str:
+    """Insert a waitlist signup. Returns 'inserted', 'duplicate', 'unconfigured', or 'error'.
+
+    Idempotent on email — duplicate inserts are detected and reported, not raised.
+    """
+    client = _get_client()
+    if client is None:
+        return "unconfigured"
+    try:
+        row = {"email": email.lower().strip(), "source": source}
+        if ip:
+            row["ip"] = ip
+        if user_agent:
+            row["user_agent"] = user_agent
+        client.table("waitlist").insert(row).execute()
+        return "inserted"
+    except Exception as e:
+        msg = str(e).lower()
+        if "duplicate" in msg or "23505" in msg or "unique" in msg:
+            return "duplicate"
+        print(f"[db] insert_waitlist failed: {e}")
+        return "error"
+
+
+def list_waitlist(limit: int = 500) -> Optional[list]:
+    """Return all waitlist signups (newest first). None if DB unreachable."""
+    client = _get_client()
+    if client is None:
+        return None
+    try:
+        resp = (client.table("waitlist")
+                .select("email,source,created_at,invited_at,ip")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute())
+        return resp.data or []
+    except Exception as e:
+        print(f"[db] list_waitlist failed: {e}")
+        return None
+
+
 def query_usage_summary(recent_limit: int = 50) -> Optional[dict]:
     """Return same dict shape as usage.get_summary(), sourced from Supabase.
 

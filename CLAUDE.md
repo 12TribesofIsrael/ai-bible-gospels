@@ -348,6 +348,7 @@ See [.env.example](.env.example) for all keys. The `.env` file lives at the work
 | `SUPABASE_SECRET_KEY` | Supabase server-side key (`sb_secret_...`). Required for DB writes. Never ship to browser. |
 | `SUPABASE_PUBLISHABLE_KEY` | Supabase client-side key (`sb_publishable_...`). Used later for browser auth UI. |
 | `SUPABASE_DB_URL` | Direct Postgres connection string. Only used for admin/migration scripts, not the app. |
+| `RESEND_API_KEY` | Resend.com API key — `POST /api/waitlist` uses it to email `aibiblegospels444@gmail.com` on every signup from `onboarding@resend.dev`. If unset, signups still persist to Supabase but no email is sent (a warning is logged). |
 
 The biblical server uses `find_dotenv()` to locate `.env` by walking up the directory tree from `server/app.py`.
 
@@ -368,7 +369,7 @@ modal deploy modal_app.py
 ```
 
 ### Setup
-1. Create a Modal secret named `ai-bible-gospels` with: `FAL_KEY`, `JSON2VIDEO_API_KEY`, `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `APP_USERNAME`, `APP_PASSWORD`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`
+1. Create a Modal secret named `ai-bible-gospels` with: `FAL_KEY`, `JSON2VIDEO_API_KEY`, `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `APP_USERNAME`, `APP_PASSWORD`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`, `RESEND_API_KEY`
 2. Run `modal deploy modal_app.py`
 
 ### Key Files
