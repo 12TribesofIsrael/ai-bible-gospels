@@ -226,6 +226,22 @@ class WaitlistRequest(BaseModel):
     email: str
 
 
+class InviteIssueRequest(BaseModel):
+    email: str
+
+
+class InviteClaimRequest(BaseModel):
+    chapter: str  # e.g. "Genesis 1", "Psalm 23"
+
+
+class RenderDoneRequest(BaseModel):
+    # Optional. If omitted, the endpoint auto-pulls from public.renders.video_url
+    # via the waitlist row's render_id. If provided, this overrides — useful when
+    # the admin wants to send a different URL (e.g. a YouTube link instead of the
+    # raw .mp4) without touching the renders row.
+    video_url: Optional[str] = None
+
+
 # ── Bible Selector API ────────────────────────────────────────────────────────
 
 @app.get("/api/bible/books")
@@ -2529,6 +2545,8 @@ else:
     _LANDING_DIR = Path(__file__).parent.parent.parent.parent / "landingpage" / "web"
 
 _LANDING_HTML_PATH = _LANDING_DIR / "index.html"
+_INVITE_HTML_PATH  = _LANDING_DIR / "invite.html"
+_ADMIN_HTML_PATH   = _LANDING_DIR / "admin.html"
 _LANDING_ASSET_WHITELIST = {
     "hero-loop.mp4", "sample-1.mp4", "sample-2.mp4",
     "hero-poster.jpg", "sample-1-poster.jpg", "sample-2-poster.jpg",
@@ -2542,6 +2560,30 @@ async def landing_marketing():
         return HTMLResponse(content=_LANDING_HTML_PATH.read_text(encoding="utf-8"))
     # Fallback: if landing assets weren't deployed, show the tool directly
     return HTMLResponse(content=LANDING_PAGE)
+
+
+@app.get("/admin/", response_class=HTMLResponse)
+async def admin_panel():
+    """Admin panel — single page wrapping /admin/waitlist + per-row buttons.
+    Gated by Basic Auth via the existing middleware."""
+    if _ADMIN_HTML_PATH.exists():
+        return HTMLResponse(content=_ADMIN_HTML_PATH.read_text(encoding="utf-8"))
+    return HTMLResponse(
+        content="<h1>Admin panel not deployed</h1>",
+        status_code=503,
+    )
+
+
+@app.get("/invite/{token}", response_class=HTMLResponse)
+async def invite_landing(token: str):
+    """Public — invite landing page. Serves invite.html (which reads the token
+    from the URL path via JS and calls /api/invite/{token} to validate)."""
+    if _INVITE_HTML_PATH.exists():
+        return HTMLResponse(content=_INVITE_HTML_PATH.read_text(encoding="utf-8"))
+    return HTMLResponse(
+        content="<h1>Invite page not deployed</h1>",
+        status_code=503,
+    )
 
 
 @app.get("/landing/{filename}")
@@ -2573,6 +2615,9 @@ _RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 _WAITLIST_NOTIFY_EMAIL = "aibiblegospels444@gmail.com"
 _WAITLIST_FROM = "Anointed <hello@anointed.app>"
 _YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@AIBibleGospels"
+_ANOINTED_BASE_URL = "https://anointed.app"
+_STRIPE_LINK_25 = os.getenv("STRIPE_LINK_25", "")  # 1 paid chapter
+_STRIPE_LINK_50 = os.getenv("STRIPE_LINK_50", "")  # 3 paid chapters (bundle)
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -2639,6 +2684,109 @@ def _send_signer_confirmation(email: str) -> None:
     _resend_send([email], "You're on the Anointed waitlist", html, reply_to=_WAITLIST_NOTIFY_EMAIL)
 
 
+def _send_invite_email(email: str, token: str) -> None:
+    """Step 4 of the beta ROI flow — admin-issued invite to claim the free chapter."""
+    invite_url = f"{_ANOINTED_BASE_URL}/invite/{token}"
+    preheader = "One free cinematic chapter, on the house. Pick any book."
+    html = (
+        # hidden preheader for inbox preview text
+        f"<div style='display:none;font-size:1px;line-height:1px;max-height:0;"
+        f"max-width:0;opacity:0;overflow:hidden'>{preheader}</div>"
+        f"<div style='font-family:sans-serif;max-width:560px;margin:0 auto;color:#222'>"
+        f"<h2 style='font-size:22px;margin-bottom:8px'>🙏 Your private link is ready, friend.</h2>"
+        f"<p style='font-size:16px;line-height:1.5'>"
+        f"Thank you for waiting. You're in the first wave of the Anointed beta — "
+        f"and your first chapter is on us.</p>"
+        f"<p style='font-size:16px;line-height:1.5'>"
+        f"Pick <strong>any chapter of scripture</strong> (Genesis 1, Psalm 23, "
+        f"Romans 8, Revelation 21 — your call) and we'll render it as a cinematic "
+        f"short, narrated in a voice you choose. Yours to keep, share, send to your "
+        f"pastor, post to your story.</p>"
+        f"<p style='margin:28px 0'>"
+        f"<a href='{invite_url}' "
+        f"style='background:#5b3df5;color:#fff;padding:14px 24px;border-radius:8px;"
+        f"text-decoration:none;font-weight:600;font-size:16px'>Claim your free chapter →</a></p>"
+        f"<p style='font-size:13px;color:#888;line-height:1.5;font-style:italic'>"
+        f"This link is yours — please don't share it. It's good for one chapter, no expiry.</p>"
+        f"<p style='font-size:16px;line-height:1.5;margin-top:24px'>"
+        f"<strong>What to expect:</strong> rendering takes ~6–10 minutes. We'll email "
+        f"you the moment your video is ready. After that, you'll see what it costs to "
+        f"do more — but no pressure, no auto-renew, no anything. The first one is just "
+        f"for you.</p>"
+        f"<p style='font-size:14px;color:#666;line-height:1.5;margin-top:32px'>"
+        f"If a specific verse is on your heart, reply to this email and let me know. "
+        f"I read every reply.</p>"
+        f"<p style='font-size:13px;color:#999;margin-top:24px'>— Thomas, Anointed</p>"
+        f"<p style='font-size:12px;color:#aaa;margin-top:24px;border-top:1px solid #eee;"
+        f"padding-top:16px'>P.S. We're capping the beta at 25 invites/week so quality "
+        f"stays high. Your spot is held.</p>"
+        f"</div>"
+    )
+    _resend_send([email], "Your Anointed invite is here — claim your free chapter",
+                 html, reply_to=_WAITLIST_NOTIFY_EMAIL)
+
+
+def _send_render_complete_email(email: str, chapter: str, video_url: str) -> None:
+    """Step 5 of the beta ROI flow — fired when a render completes.
+    Includes Stripe upsell buttons IF both _STRIPE_LINK_25 / _STRIPE_LINK_50
+    env vars are set (graceful degradation if not yet configured)."""
+    chapter_safe = chapter or "your chapter"
+    preheader = "Watch it, share it, and pick the next one when you're ready."
+
+    upsell_block = ""
+    if _STRIPE_LINK_25 and _STRIPE_LINK_50:
+        upsell_block = (
+            f"<hr style='border:none;border-top:1px solid #eee;margin:32px 0' />"
+            f"<h3 style='font-size:18px;margin-bottom:8px'>Want to do another?</h3>"
+            f"<p style='font-size:15px;line-height:1.5;color:#555'>"
+            f"If something stirred in you watching that, here's how to bring more "
+            f"chapters to life. No subscription, no auto-renew — top up only when "
+            f"you want to.</p>"
+            f"<p style='margin:20px 0 8px'>"
+            f"<a href='{_STRIPE_LINK_25}' "
+            f"style='background:#5b3df5;color:#fff;padding:12px 22px;border-radius:8px;"
+            f"text-decoration:none;font-weight:600;display:inline-block'>"
+            f"$25 — one more chapter →</a></p>"
+            f"<p style='font-size:13px;color:#888;margin:0 0 16px'>"
+            f"Whatever book is on your heart next.</p>"
+            f"<p style='margin:8px 0'>"
+            f"<a href='{_STRIPE_LINK_50}' "
+            f"style='background:#5b3df5;color:#fff;padding:12px 22px;border-radius:8px;"
+            f"text-decoration:none;font-weight:600;display:inline-block'>"
+            f"$50 — three chapters →</a> "
+            f"<span style='font-size:13px;color:#888;margin-left:8px'>"
+            f"<em>save $25</em></span></p>"
+            f"<p style='font-size:13px;color:#888;margin:0 0 24px'>"
+            f"Build a series — Genesis 1–3, the parables of Christ, the seven "
+            f"churches of Revelation.</p>"
+        )
+
+    html = (
+        f"<div style='display:none;font-size:1px;line-height:1px;max-height:0;"
+        f"max-width:0;opacity:0;overflow:hidden'>{preheader}</div>"
+        f"<div style='font-family:sans-serif;max-width:560px;margin:0 auto;color:#222'>"
+        f"<h2 style='font-size:22px;margin-bottom:8px'>🎬 Your chapter is ready.</h2>"
+        f"<p style='font-size:16px;line-height:1.5'>"
+        f"<strong>{chapter_safe}</strong> — cinematic, yours to keep.</p>"
+        f"<p style='margin:28px 0'>"
+        f"<a href='{video_url}' "
+        f"style='background:#5b3df5;color:#fff;padding:14px 24px;border-radius:8px;"
+        f"text-decoration:none;font-weight:600;font-size:16px'>"
+        f"Watch &amp; download your video →</a></p>"
+        f"<p style='font-size:13px;color:#888;font-style:italic'>"
+        f"Link stays live for 30 days.</p>"
+        f"{upsell_block}"
+        f"<p style='font-size:14px;color:#666;line-height:1.5;margin-top:24px'>"
+        f"Reply to this email if there's a specific verse calling you. I'll help "
+        f"you think through what would translate best to cinema before you spend "
+        f"a dime.</p>"
+        f"<p style='font-size:13px;color:#999;margin-top:24px'>— Thomas, Anointed</p>"
+        f"</div>"
+    )
+    subject = f"Your {chapter_safe} is ready 🎬"
+    _resend_send([email], subject, html, reply_to=_WAITLIST_NOTIFY_EMAIL)
+
+
 @app.post("/api/waitlist")
 @limiter.limit(MEDIUM_LIMIT)
 async def api_waitlist_signup(request: Request, req: WaitlistRequest):
@@ -2668,6 +2816,53 @@ async def api_waitlist_signup(request: Request, req: WaitlistRequest):
             "message": "You're on the list. We'll send your private link soon."}
 
 
+@app.get("/api/invite/{token}")
+async def api_invite_status(token: str):
+    """Public — page-load check for the invite landing page.
+
+    Returns {valid, email, redeemed, chapter_picked, free_used} on success,
+    or {valid: False} if the token is unknown / Supabase down. Never raises —
+    a clean 200 false is friendlier UX than a 404 on a typo'd URL.
+    """
+    if not token or len(token) > 100:
+        return {"valid": False}
+    row = _db_mod.get_invite(token)
+    if row is None:
+        return {"valid": False}
+    return {
+        "valid": True,
+        "email": row.get("email"),
+        "redeemed": row.get("redeemed_at") is not None,
+        "chapter_picked": row.get("chapter_picked"),
+        "free_used": bool(row.get("free_used", False)),
+    }
+
+
+@app.post("/api/invite/{token}/claim")
+@limiter.limit(MEDIUM_LIMIT)
+async def api_invite_claim(request: Request, token: str, req: InviteClaimRequest):
+    """Public — claim the free chapter. Marks the invite redeemed and stores the
+    chapter pick on the waitlist row. The actual render is triggered manually
+    from the admin panel (Path B / admin-mediated for beta).
+    """
+    chapter = req.chapter.strip()
+    if not chapter or len(chapter) > 200:
+        raise HTTPException(status_code=400, detail="Pick a chapter (e.g. 'Genesis 1').")
+
+    result = _db_mod.redeem_invite(token, chapter)
+
+    if result == "unconfigured":
+        raise HTTPException(status_code=503, detail="Backend not configured.")
+    if result == "invalid":
+        raise HTTPException(status_code=404, detail="Invalid or expired invite link.")
+    if result == "already":
+        return {"status": "already_claimed",
+                "message": "You've already picked your chapter — your video is on its way."}
+
+    return {"status": "claimed",
+            "message": "Got it. Your video will land in your inbox within 24 hours."}
+
+
 @app.get("/admin/waitlist")
 async def admin_waitlist():
     """View all waitlist signups. Gated by Basic Auth when APP_USERNAME/PASSWORD set."""
@@ -2677,6 +2872,90 @@ async def admin_waitlist():
             {"error": "Supabase not configured — waitlist storage unavailable.",
              "configured": False}, status_code=503)
     return {"configured": True, "count": len(rows), "signups": rows}
+
+
+@app.post("/admin/invites/issue")
+async def admin_issue_invite(req: InviteIssueRequest):
+    """Issue (or re-fetch) a one-time invite token for an existing waitlist row
+    and send the Step 4 invite email. Gated by Basic Auth middleware.
+
+    Idempotent: calling this twice for the same email returns the same token
+    while the invite is still unredeemed — the email is re-sent each call.
+
+    TODO(admin-panel): once the HTML admin panel exists, wire a per-row
+    'Issue invite' button that POSTs here with the row's email.
+    """
+    if not _db_mod.is_enabled():
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    email = req.email.strip().lower()
+    if not _EMAIL_RE.match(email) or len(email) > 254:
+        raise HTTPException(status_code=400, detail="Invalid email")
+    token = _db_mod.issue_invite(email)
+    if token is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No waitlist row for {email} — they need to sign up first.",
+        )
+    _send_invite_email(email, token)
+    return {
+        "status": "sent",
+        "email": email,
+        "token": token,
+        "invite_url": f"{_ANOINTED_BASE_URL}/invite/{token}",
+    }
+
+
+@app.post("/admin/invites/{token}/send-done")
+async def admin_send_done(token: str, req: RenderDoneRequest):
+    """Send the 'video ready' (Step 5 monetize) email for a redeemed invite.
+
+    Video URL precedence:
+      1. req.video_url if provided (admin override — useful for YouTube links etc.)
+      2. Auto-pulled from public.renders.video_url via waitlist.render_id
+    Returns 400 if neither path yields a URL.
+
+    TODO(admin-panel): wire a 'Send done email' button per row that POSTs here.
+    """
+    if not _db_mod.is_enabled():
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    row = _db_mod.get_invite(token)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Invalid invite token")
+    email = row.get("email") or ""
+    chapter = row.get("chapter_picked") or ""
+    if not email or not chapter:
+        raise HTTPException(
+            status_code=400,
+            detail="Invite has no chapter pick yet — user hasn't claimed.",
+        )
+
+    video_url = (req.video_url or "").strip()
+    source = "admin_override" if video_url else "auto_renders"
+    if not video_url:
+        render_id = row.get("render_id")
+        if not render_id:
+            raise HTTPException(
+                status_code=400,
+                detail="No render_id linked to this invite. Either trigger a render "
+                       "and attach it, or pass video_url explicitly.",
+            )
+        rec = _db_mod.get_render(str(render_id))
+        if rec is None or not rec.get("video_url"):
+            raise HTTPException(
+                status_code=400,
+                detail="Linked render has no video_url yet — render may still be "
+                       "in progress, or pass video_url explicitly to override.",
+            )
+        video_url = rec["video_url"]
+
+    _send_render_complete_email(email, chapter, video_url)
+    return {
+        "status": "sent",
+        "email": email,
+        "chapter": chapter,
+        "video_url": video_url,
+        "url_source": source,
+    }
 
 
 @app.get("/admin/usage")

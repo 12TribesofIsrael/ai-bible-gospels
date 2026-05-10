@@ -82,3 +82,16 @@ create table if not exists public.waitlist (
 );
 
 create index if not exists waitlist_created_at_idx on public.waitlist (created_at desc);
+
+-- ---------------------------------------------------------------------------
+-- Beta invite flow extensions (Step 4 invite + Step 5 monetize)
+-- Lightweight: keeps invite redemption + paid credits on the waitlist row so
+-- we don't need auth.users until full SaaS multi-tenancy ships.
+-- ---------------------------------------------------------------------------
+alter table public.waitlist
+    add column if not exists invite_token   text unique,
+    add column if not exists redeemed_at    timestamptz,
+    add column if not exists chapter_picked text,
+    add column if not exists render_id      uuid references public.renders(id) on delete set null,
+    add column if not exists paid_credits   int     not null default 0,
+    add column if not exists free_used      boolean not null default false;

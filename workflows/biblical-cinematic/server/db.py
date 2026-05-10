@@ -8,7 +8,9 @@ app run identically to pre-Supabase state when DB is unconfigured.
 All helpers swallow exceptions — a DB outage must never break a render.
 """
 import os
+import secrets
 from collections import Counter
+from datetime import datetime, timezone
 from typing import Optional
 
 _client = None
@@ -105,6 +107,167 @@ def list_waitlist(limit: int = 500) -> Optional[list]:
     except Exception as e:
         print(f"[db] list_waitlist failed: {e}")
         return None
+
+
+def issue_invite(email: str) -> Optional[str]:
+    """Generate a one-time invite_token for the waitlist row matching email.
+
+    Idempotent: if the row already has an unredeemed token, return that one
+    instead of regenerating — prevents accidental double-emails. Returns None
+    if Supabase is not configured or no waitlist row exists for the email.
+    """
+    client = _get_client()
+    if client is None:
+        return None
+    try:
+        normalized = email.lower().strip()
+        resp = (client.table("waitlist")
+                .select("invite_token,redeemed_at")
+                .eq("email", normalized)
+                .limit(1)
+                .execute())
+        rows = resp.data or []
+        if not rows:
+            print(f"[db] issue_invite: no waitlist row for {email}")
+            return None
+        existing = rows[0]
+        if existing.get("invite_token") and not existing.get("redeemed_at"):
+            return existing["invite_token"]
+        token = secrets.token_urlsafe(24)
+        (client.table("waitlist")
+         .update({
+             "invite_token": token,
+             "invited_at": datetime.now(timezone.utc).isoformat(),
+         })
+         .eq("email", normalized)
+         .execute())
+        return token
+    except Exception as e:
+        print(f"[db] issue_invite failed: {e}")
+        return None
+
+
+def get_invite(token: str) -> Optional[dict]:
+    """Look up the waitlist row by invite_token. Returns the full row dict
+    (email, redeemed_at, chapter_picked, free_used, paid_credits, render_id, ...)
+    or None if no match / not configured."""
+    client = _get_client()
+    if client is None:
+        return None
+    try:
+        resp = (client.table("waitlist")
+                .select("*")
+                .eq("invite_token", token)
+                .limit(1)
+                .execute())
+        rows = resp.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        print(f"[db] get_invite failed: {e}")
+        return None
+
+
+def redeem_invite(token: str, chapter_picked: str) -> str:
+    """Mark the invite redeemed + store the chapter pick.
+
+    Returns 'redeemed' (first-time, ok to start render),
+            'already'  (token redeemed before; existing render_id can be reused),
+            'invalid'  (no row with that token),
+            'unconfigured' (Supabase not wired up).
+    """
+    client = _get_client()
+    if client is None:
+        return "unconfigured"
+    try:
+        row = get_invite(token)
+        if row is None:
+            return "invalid"
+        if row.get("redeemed_at"):
+            return "already"
+        (client.table("waitlist")
+         .update({
+             "redeemed_at": datetime.now(timezone.utc).isoformat(),
+             "chapter_picked": chapter_picked,
+         })
+         .eq("invite_token", token)
+         .execute())
+        return "redeemed"
+    except Exception as e:
+        print(f"[db] redeem_invite failed: {e}")
+        return "invalid"
+
+
+def attach_render(token: str, render_id: str) -> bool:
+    """Link a render_id to the invite row and mark free_used=true.
+    Called when the free chapter render actually starts."""
+    client = _get_client()
+    if client is None:
+        return False
+    try:
+        (client.table("waitlist")
+         .update({
+             "render_id": render_id,
+             "free_used": True,
+         })
+         .eq("invite_token", token)
+         .execute())
+        return True
+    except Exception as e:
+        print(f"[db] attach_render failed: {e}")
+        return False
+
+
+def get_render(render_id: str) -> Optional[dict]:
+    """Look up a renders row by id. Returns the full row dict or None.
+    Used by the 'send video-ready email' admin flow to auto-pull video_url
+    when the admin doesn't paste one explicitly."""
+    client = _get_client()
+    if client is None or not render_id:
+        return None
+    try:
+        resp = (client.table("renders")
+                .select("*")
+                .eq("id", render_id)
+                .limit(1)
+                .execute())
+        rows = resp.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        print(f"[db] get_render failed: {e}")
+        return None
+
+
+def add_paid_credits(email: str, credits: int) -> bool:
+    """Increment paid_credits for the waitlist row by email match.
+    Called from the Stripe webhook after a $25 (1) or $50 (3) purchase.
+
+    Read-then-write — not strictly atomic. Good enough since Stripe webhooks
+    for the same email don't normally race; if it becomes a problem, swap to
+    a Postgres RPC `increment_paid_credits(email, n)` for atomic UPDATE.
+    """
+    client = _get_client()
+    if client is None:
+        return False
+    try:
+        normalized = email.lower().strip()
+        resp = (client.table("waitlist")
+                .select("paid_credits")
+                .eq("email", normalized)
+                .limit(1)
+                .execute())
+        rows = resp.data or []
+        if not rows:
+            print(f"[db] add_paid_credits: no waitlist row for {email}")
+            return False
+        new_credits = (rows[0].get("paid_credits") or 0) + credits
+        (client.table("waitlist")
+         .update({"paid_credits": new_credits})
+         .eq("email", normalized)
+         .execute())
+        return True
+    except Exception as e:
+        print(f"[db] add_paid_credits failed: {e}")
+        return False
 
 
 def query_usage_summary(recent_limit: int = 50) -> Optional[dict]:

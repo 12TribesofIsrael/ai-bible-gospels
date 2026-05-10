@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anointed — Claim Your Free Chapter</title>
+  <meta name="description" content="Pick any chapter of scripture and Anointed will turn it into a cinematic short, on the house." />
+  <meta name="robots" content="noindex" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #030712; color: #f3f4f6; }
+    .title-font { font-family: 'Cinzel', serif; }
+    .glow-amber {
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.2), 0 8px 30px rgba(245,158,11,0.15);
+    }
+    .glow-amber:hover {
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.4), 0 8px 40px rgba(245,158,11,0.35);
+    }
+    select, input { color-scheme: dark; }
+    .pulse-loading {
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex items-center justify-center px-6 py-12">
+
+  <main class="w-full max-w-xl">
+
+    <!-- Brand -->
+    <div class="text-center mb-8">
+      <a href="/" class="inline-flex items-center gap-2 text-amber-500">
+        <span class="text-2xl">✦</span>
+        <span class="title-font text-xl font-bold tracking-wide text-white">Anointed</span>
+      </a>
+    </div>
+
+    <!-- Loading state -->
+    <section id="state-loading" class="bg-gray-900/60 backdrop-blur border border-gray-800 rounded-2xl p-8 text-center">
+      <p class="text-gray-400 pulse-loading">Checking your invite…</p>
+    </section>
+
+    <!-- Invalid token state -->
+    <section id="state-invalid" class="hidden bg-gray-900/60 backdrop-blur border border-red-900/40 rounded-2xl p-8 text-center">
+      <p class="text-amber-400 text-sm font-medium tracking-[0.2em] uppercase mb-4">Hmm</p>
+      <h1 class="title-font text-3xl font-bold text-white mb-3">This link isn't valid</h1>
+      <p class="text-gray-300">If you got an email from us, double-check the URL — or just <a href="/" class="text-amber-400 hover:text-amber-300 underline">go back home</a> and re-join the waitlist.</p>
+    </section>
+
+    <!-- Already claimed state -->
+    <section id="state-already" class="hidden bg-gray-900/60 backdrop-blur border border-gray-800 rounded-2xl p-8 text-center">
+      <p class="text-amber-400 text-sm font-medium tracking-[0.2em] uppercase mb-4">🙏 You're set</p>
+      <h1 class="title-font text-3xl font-bold text-white mb-4">Your video is on its way</h1>
+      <p class="text-gray-300 mb-2">You picked <strong id="already-chapter" class="text-amber-300"></strong>.</p>
+      <p class="text-gray-400 text-sm">We'll email <strong id="already-email" class="text-gray-200"></strong> within 24 hours when your video is ready.</p>
+    </section>
+
+    <!-- Ready to claim state -->
+    <section id="state-ready" class="hidden">
+      <div class="bg-gray-900/60 backdrop-blur border border-gray-800 rounded-2xl p-8">
+        <p class="text-amber-400 text-sm font-medium tracking-[0.2em] uppercase mb-3">Welcome, friend</p>
+        <h1 class="title-font text-3xl md:text-4xl font-bold text-white mb-3 leading-tight">Pick any chapter</h1>
+        <p class="text-gray-300 mb-6 leading-relaxed">
+          Genesis 1, Psalm 23, Romans 8, Revelation 21 — your call. We'll render it as a cinematic short and email it to <strong id="ready-email" class="text-gray-200"></strong> within 24 hours.
+        </p>
+
+        <form id="claim-form" class="space-y-4">
+          <div>
+            <label for="book-select" class="block text-sm font-medium text-gray-300 mb-2">Book</label>
+            <select id="book-select" required
+              class="w-full bg-gray-950 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500 transition">
+              <option value="">Loading books…</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="chapter-select" class="block text-sm font-medium text-gray-300 mb-2">Chapter</label>
+            <select id="chapter-select" required disabled
+              class="w-full bg-gray-950 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-500 transition disabled:opacity-50">
+              <option value="">Pick a book first</option>
+            </select>
+          </div>
+
+          <button type="submit" id="claim-button"
+            class="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold px-6 py-4 rounded-xl text-base transition glow-amber disabled:opacity-50 disabled:cursor-not-allowed mt-2">
+            Claim my free chapter →
+          </button>
+          <p id="claim-status" class="text-sm text-gray-400 min-h-[1.25rem] text-center"></p>
+        </form>
+      </div>
+
+      <p class="text-xs text-gray-500 text-center mt-6 leading-relaxed">
+        This invite is yours — please don't share it. Good for one chapter, no expiry.<br/>
+        Questions? Reply to the email we sent you.
+      </p>
+    </section>
+
+    <!-- Claimed (post-submit) state -->
+    <section id="state-claimed" class="hidden bg-gray-900/60 backdrop-blur border border-amber-900/40 rounded-2xl p-8 text-center">
+      <p class="text-amber-400 text-sm font-medium tracking-[0.2em] uppercase mb-4">🎬 Got it</p>
+      <h1 class="title-font text-3xl font-bold text-white mb-4">Your <span id="claimed-chapter" class="text-amber-300"></span> is rendering</h1>
+      <p class="text-gray-300 mb-2">We'll email <strong id="claimed-email" class="text-gray-200"></strong> within 24 hours.</p>
+      <p class="text-gray-500 text-sm mt-6">Reply to that email if you want to do another chapter — we'll talk through pricing then.</p>
+    </section>
+
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // Token comes from the URL path: /invite/<token>
+      const pathParts = location.pathname.split('/').filter(Boolean);
+      const token = pathParts[pathParts.length - 1] || '';
+
+      const $ = (id) => document.getElementById(id);
+
+      function show(stateId) {
+        ['state-loading','state-invalid','state-already','state-ready','state-claimed']
+          .forEach(s => $(s).classList.toggle('hidden', s !== stateId));
+      }
+
+      async function loadInvite() {
+        if (!token || token === 'invite') {
+          show('state-invalid');
+          return;
+        }
+        try {
+          const r = await fetch(`/api/invite/${encodeURIComponent(token)}`);
+          const data = await r.json();
+          if (!data.valid) { show('state-invalid'); return; }
+
+          if (data.redeemed) {
+            $('already-chapter').textContent = data.chapter_picked || 'a chapter';
+            $('already-email').textContent = data.email || '';
+            show('state-already');
+            return;
+          }
+
+          $('ready-email').textContent = data.email || '';
+          await loadBooks();
+          show('state-ready');
+        } catch (e) {
+          console.error(e);
+          show('state-invalid');
+        }
+      }
+
+      let booksByName = {};
+      async function loadBooks() {
+        const r = await fetch('/api/bible/books');
+        const data = await r.json();
+        const sel = $('book-select');
+        sel.innerHTML = '<option value="">Choose a book…</option>';
+        const groups = [
+          ['Old Testament', data.old_testament],
+          ['New Testament', data.new_testament],
+          ['Apocrypha',     data.apocrypha],
+        ];
+        for (const [label, books] of groups) {
+          if (!books || !books.length) continue;
+          const og = document.createElement('optgroup');
+          og.label = label;
+          for (const b of books) {
+            booksByName[b.name] = b.chapters;
+            const opt = document.createElement('option');
+            opt.value = b.name;
+            opt.textContent = b.name;
+            og.appendChild(opt);
+          }
+          sel.appendChild(og);
+        }
+        sel.addEventListener('change', onBookChange);
+      }
+
+      function onBookChange() {
+        const book = $('book-select').value;
+        const csel = $('chapter-select');
+        if (!book) {
+          csel.innerHTML = '<option value="">Pick a book first</option>';
+          csel.disabled = true;
+          return;
+        }
+        const count = booksByName[book] || 0;
+        csel.innerHTML = '<option value="">Choose a chapter…</option>';
+        for (let i = 1; i <= count; i++) {
+          const opt = document.createElement('option');
+          opt.value = String(i);
+          opt.textContent = `Chapter ${i}`;
+          csel.appendChild(opt);
+        }
+        csel.disabled = false;
+      }
+
+      $('claim-form').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const book = $('book-select').value;
+        const chapter = $('chapter-select').value;
+        if (!book || !chapter) return;
+        const label = `${book} ${chapter}`;
+        const btn = $('claim-button');
+        const status = $('claim-status');
+        btn.disabled = true;
+        status.textContent = 'Claiming…';
+        try {
+          const r = await fetch(`/api/invite/${encodeURIComponent(token)}/claim`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({chapter: label}),
+          });
+          const data = await r.json();
+          if (!r.ok) {
+            status.textContent = data.detail || 'Something went wrong. Please try again.';
+            status.className = 'text-sm text-red-400 min-h-[1.25rem] text-center';
+            btn.disabled = false;
+            return;
+          }
+          $('claimed-chapter').textContent = label;
+          $('claimed-email').textContent = $('ready-email').textContent;
+          show('state-claimed');
+        } catch (e) {
+          status.textContent = 'Network error. Please try again.';
+          status.className = 'text-sm text-red-400 min-h-[1.25rem] text-center';
+          btn.disabled = false;
+        }
+      });
+
+      loadInvite();
+    })();
+  </script>
+
+</body>
+</html>

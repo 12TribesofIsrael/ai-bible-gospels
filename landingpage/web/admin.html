@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anointed — Admin</title>
+  <meta name="robots" content="noindex" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #030712; color: #f3f4f6; }
+    .title-font { font-family: 'Cinzel', serif; }
+    .glow-amber {
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.2), 0 8px 30px rgba(245,158,11,0.15);
+    }
+    .glow-amber:hover {
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.4), 0 8px 40px rgba(245,158,11,0.35);
+    }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+    .badge-signedup { background: #1e3a8a; color: #bfdbfe; }
+    .badge-invited  { background: #78350f; color: #fed7aa; }
+    .badge-redeemed { background: #14532d; color: #bbf7d0; }
+    .badge-rendering { background: #581c87; color: #e9d5ff; }
+    .badge-ready    { background: #14532d; color: #bbf7d0; }
+    select, input, textarea { color-scheme: dark; }
+    table { border-collapse: separate; border-spacing: 0; }
+    tbody tr:hover { background: rgba(255,255,255,0.025); }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+  <header class="border-b border-gray-900/60 backdrop-blur bg-gray-950/70 sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex items-center gap-2 text-amber-500">
+          <span class="text-2xl">✦</span>
+          <span class="title-font text-xl font-bold tracking-wide text-white">Anointed</span>
+        </a>
+        <span class="text-gray-600">·</span>
+        <span class="text-gray-400 text-sm tracking-[0.2em] uppercase font-medium">Admin</span>
+      </div>
+      <button id="refresh" class="text-gray-400 hover:text-amber-400 text-sm px-3 py-1.5 border border-gray-800 hover:border-amber-700 rounded-lg transition">Refresh</button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-6">
+
+    <section id="summary" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6"></section>
+
+    <section class="bg-gray-900/40 border border-gray-800 rounded-xl overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-900/80 text-gray-400 text-xs uppercase tracking-wider">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium">Email</th>
+            <th class="text-left px-4 py-3 font-medium">Joined</th>
+            <th class="text-left px-4 py-3 font-medium">State</th>
+            <th class="text-left px-4 py-3 font-medium">Chapter</th>
+            <th class="text-right px-4 py-3 font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rows" class="divide-y divide-gray-800/60"></tbody>
+      </table>
+      <p id="empty" class="hidden text-center text-gray-500 py-12">No signups yet.</p>
+      <p id="loading" class="text-center text-gray-500 py-12">Loading…</p>
+    </section>
+
+    <p class="text-xs text-gray-600 mt-6 leading-relaxed">
+      Path B / admin-mediated: render the chosen chapter manually in
+      <a href="/app" target="_blank" class="text-amber-500 hover:text-amber-400 underline">/app</a>,
+      then click <strong class="text-gray-400">Send video-ready</strong> on the row to fire the Step 5 email.
+      Multi-tenant render queue (Path A) ships when invite volume warrants it.
+    </p>
+  </main>
+
+  <!-- Send-done modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/80 z-20 p-6 overflow-y-auto" onclick="closeModal(event)">
+    <div class="max-w-lg mx-auto bg-gray-900 border border-gray-700 rounded-xl p-6 mt-12" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-start mb-4">
+        <h2 class="title-font text-2xl font-bold">Send video-ready email</h2>
+        <button onclick="closeModal()" class="text-gray-500 hover:text-white text-2xl leading-none">×</button>
+      </div>
+      <p class="text-sm text-gray-400 mb-1">To <strong id="m-email" class="text-gray-200"></strong></p>
+      <p class="text-sm text-gray-400 mb-5">Chapter: <strong id="m-chapter" class="text-amber-300"></strong></p>
+
+      <label class="block text-sm font-medium text-gray-300 mb-2">Video URL <span class="text-gray-500 font-normal">(optional — leave blank to auto-pull from <code class="text-xs">renders.video_url</code>)</span></label>
+      <input id="m-video-url" type="url" placeholder="https://… (paste .mp4 link or YouTube URL)"
+        class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-amber-500 transition mb-4" />
+
+      <div class="flex gap-3 justify-end">
+        <button onclick="closeModal()" class="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancel</button>
+        <button id="m-send" class="bg-amber-500 hover:bg-amber-400 text-black font-bold px-5 py-2.5 rounded-lg text-sm transition glow-amber">Send email →</button>
+      </div>
+      <p id="m-status" class="text-sm mt-3 min-h-[1.25rem] text-center"></p>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+      const $ = (id) => document.getElementById(id);
+      const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+
+      let rows = [];
+
+      function deriveState(row) {
+        if (row.invited_at && !row.redeemed_at && row.invite_token) return 'invited';
+        if (row.redeemed_at && !row.render_id) return 'redeemed';
+        if (row.render_id) return 'rendering';  // best-guess; actual render status would need a /admin/renders/{id} probe
+        return 'signedup';
+      }
+
+      const STATE_LABEL = {
+        signedup: 'Signed up', invited: 'Invited', redeemed: 'Redeemed',
+        rendering: 'Render attached', ready: 'Ready',
+      };
+
+      function fmtDate(iso) {
+        if (!iso) return '—';
+        return iso.slice(0, 10);
+      }
+
+      function renderSummary() {
+        const counts = rows.reduce((acc, r) => {
+          acc[deriveState(r)] = (acc[deriveState(r)] || 0) + 1;
+          acc.total++;
+          return acc;
+        }, { total: 0, signedup: 0, invited: 0, redeemed: 0, rendering: 0 });
+
+        const cards = [
+          { label: 'Total',     value: counts.total,     cls: 'text-gray-100' },
+          { label: 'Signed up', value: counts.signedup,  cls: 'text-blue-300' },
+          { label: 'Invited',   value: counts.invited,   cls: 'text-amber-300' },
+          { label: 'Redeemed',  value: counts.redeemed,  cls: 'text-emerald-300' },
+          { label: 'Rendering', value: counts.rendering, cls: 'text-purple-300' },
+        ];
+        $('summary').innerHTML = cards.map((c) => `
+          <div class="bg-gray-900/60 border border-gray-800 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold ${c.cls}">${c.value}</div>
+            <div class="text-[11px] uppercase tracking-wider text-gray-500 mt-1">${c.label}</div>
+          </div>`).join('');
+      }
+
+      function renderRow(r) {
+        const state = deriveState(r);
+        const inviteUrl = r.invite_token ? `/invite/${r.invite_token}` : null;
+
+        let actions = '';
+        if (state === 'signedup') {
+          actions = `<button data-action="issue" data-email="${escapeHtml(r.email)}"
+            class="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-3 py-1.5 rounded-lg text-xs transition">
+            Issue invite
+          </button>`;
+        } else if (state === 'invited') {
+          actions = `
+            <a href="${escapeHtml(inviteUrl)}" target="_blank"
+              class="text-amber-400 hover:text-amber-300 text-xs underline mr-3">View link</a>
+            <button data-action="issue" data-email="${escapeHtml(r.email)}"
+              class="border border-gray-700 hover:border-amber-700 text-gray-300 px-3 py-1.5 rounded-lg text-xs transition">
+              Re-send
+            </button>`;
+        } else if (state === 'redeemed' || state === 'rendering') {
+          actions = `
+            <a href="/app" target="_blank"
+              class="text-amber-400 hover:text-amber-300 text-xs underline mr-3">Open /app</a>
+            <button data-action="senddone" data-token="${escapeHtml(r.invite_token || '')}"
+              data-email="${escapeHtml(r.email)}" data-chapter="${escapeHtml(r.chapter_picked || '')}"
+              class="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-3 py-1.5 rounded-lg text-xs transition">
+              Send video-ready
+            </button>`;
+        }
+
+        return `
+          <tr class="text-sm">
+            <td class="px-4 py-3 font-medium text-gray-100">${escapeHtml(r.email)}</td>
+            <td class="px-4 py-3 text-gray-400 text-xs tabular-nums">${escapeHtml(fmtDate(r.created_at))}</td>
+            <td class="px-4 py-3"><span class="badge badge-${state}">${STATE_LABEL[state] || state}</span></td>
+            <td class="px-4 py-3 text-gray-300">${escapeHtml(r.chapter_picked || '—')}</td>
+            <td class="px-4 py-3 text-right whitespace-nowrap">${actions}</td>
+          </tr>`;
+      }
+
+      async function load() {
+        $('loading').classList.remove('hidden');
+        $('empty').classList.add('hidden');
+        $('rows').innerHTML = '';
+        try {
+          const r = await fetch('/admin/waitlist');
+          if (!r.ok) {
+            $('rows').innerHTML = `<tr><td colspan="5" class="px-4 py-12 text-center text-red-400">Failed to load (${r.status}). Check Basic Auth.</td></tr>`;
+            $('loading').classList.add('hidden');
+            return;
+          }
+          const data = await r.json();
+          if (!data.configured) {
+            $('rows').innerHTML = `<tr><td colspan="5" class="px-4 py-12 text-center text-amber-400">Supabase not configured. ${escapeHtml(data.error || '')}</td></tr>`;
+            $('loading').classList.add('hidden');
+            return;
+          }
+          rows = (data.signups || []).slice().sort((a, b) =>
+            (b.created_at || '').localeCompare(a.created_at || ''));
+          renderSummary();
+          if (rows.length === 0) {
+            $('empty').classList.remove('hidden');
+          } else {
+            $('rows').innerHTML = rows.map(renderRow).join('');
+            wireActions();
+          }
+        } catch (e) {
+          console.error(e);
+          $('rows').innerHTML = `<tr><td colspan="5" class="px-4 py-12 text-center text-red-400">Network error.</td></tr>`;
+        }
+        $('loading').classList.add('hidden');
+      }
+
+      function wireActions() {
+        document.querySelectorAll('button[data-action="issue"]').forEach((btn) => {
+          btn.addEventListener('click', () => issueInvite(btn.dataset.email, btn));
+        });
+        document.querySelectorAll('button[data-action="senddone"]').forEach((btn) => {
+          btn.addEventListener('click', () => openModal(btn.dataset.token, btn.dataset.email, btn.dataset.chapter));
+        });
+      }
+
+      async function issueInvite(email, btn) {
+        const original = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = 'Sending…';
+        try {
+          const r = await fetch('/admin/invites/issue', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email}),
+          });
+          const data = await r.json();
+          if (!r.ok) {
+            btn.innerText = `❌ ${data.detail || 'Failed'}`;
+            setTimeout(() => { btn.innerText = original; btn.disabled = false; }, 3000);
+            return;
+          }
+          btn.innerText = '✓ Sent';
+          setTimeout(load, 800);
+        } catch (e) {
+          btn.innerText = '❌ Network';
+          setTimeout(() => { btn.innerText = original; btn.disabled = false; }, 3000);
+        }
+      }
+
+      let modalToken = '';
+      function openModal(token, email, chapter) {
+        modalToken = token;
+        $('m-email').textContent = email;
+        $('m-chapter').textContent = chapter || '(none)';
+        $('m-video-url').value = '';
+        $('m-status').textContent = '';
+        $('m-status').className = 'text-sm mt-3 min-h-[1.25rem] text-center';
+        $('modal').classList.remove('hidden');
+      }
+      window.closeModal = function (e) {
+        if (e && e.target.id !== 'modal') return;
+        $('modal').classList.add('hidden');
+      };
+
+      $('m-send').addEventListener('click', async () => {
+        const url = $('m-video-url').value.trim();
+        const status = $('m-status');
+        $('m-send').disabled = true;
+        status.textContent = 'Sending…';
+        status.className = 'text-sm mt-3 min-h-[1.25rem] text-center text-gray-400';
+        try {
+          const body = url ? {video_url: url} : {};
+          const r = await fetch(`/admin/invites/${encodeURIComponent(modalToken)}/send-done`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+          });
+          const data = await r.json();
+          if (!r.ok) {
+            status.textContent = `❌ ${data.detail || 'Failed'}`;
+            status.className = 'text-sm mt-3 min-h-[1.25rem] text-center text-red-400';
+            $('m-send').disabled = false;
+            return;
+          }
+          status.textContent = `✓ Sent (${data.url_source})`;
+          status.className = 'text-sm mt-3 min-h-[1.25rem] text-center text-emerald-400';
+          setTimeout(() => { closeModal(); load(); }, 1200);
+        } catch (e) {
+          status.textContent = '❌ Network error';
+          status.className = 'text-sm mt-3 min-h-[1.25rem] text-center text-red-400';
+          $('m-send').disabled = false;
+        }
+      });
+
+      $('refresh').addEventListener('click', load);
+      load();
+    })();
+  </script>
+
+</body>
+</html>
