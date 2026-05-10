@@ -2101,7 +2101,10 @@ LANDING_PAGE = """<!DOCTYPE html>
       if (!allSections || allSections.length < 2) return;
       // Concatenate the cleaned text of every section. Each section's text
       // already had its metadata header stripped server-side at /api/clean.
-      const combined = allSections.map(s => s.text.trim()).filter(Boolean).join('\n\n');
+      // Note: '\\n\\n' compiles to JS '\n\n' — Python interprets '\n' in
+      // non-raw triple-quoted strings as a real newline, which breaks the
+      // surrounding single-quoted JS literal.
+      const combined = allSections.map(s => s.text.trim()).filter(Boolean).join('\\n\\n');
       const btn = document.getElementById('approve-all-btn');
       const totalWords = allSections.reduce((sum, x) => sum + (x.word_count || 0), 0);
       const totalMin = allSections.reduce((sum, x) => sum + (x.estimated_minutes || 0), 0);
