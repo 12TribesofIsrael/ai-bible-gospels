@@ -93,13 +93,22 @@ def insert_waitlist(email: str, ip: Optional[str] = None, user_agent: Optional[s
 
 
 def list_waitlist(limit: int = 500) -> Optional[list]:
-    """Return all waitlist signups (newest first). None if DB unreachable."""
+    """Return all waitlist signups (newest first). None if DB unreachable.
+
+    Selects all invite-flow columns so the admin panel can derive each row's
+    state (signed_up / invited / redeemed / rendering / ready) from a single
+    query without a second round-trip per row.
+    """
     client = _get_client()
     if client is None:
         return None
     try:
         resp = (client.table("waitlist")
-                .select("email,source,created_at,invited_at,ip")
+                .select(
+                    "email,source,created_at,invited_at,ip,"
+                    "invite_token,redeemed_at,chapter_picked,render_id,"
+                    "paid_credits,free_used"
+                )
                 .order("created_at", desc=True)
                 .limit(limit)
                 .execute())
