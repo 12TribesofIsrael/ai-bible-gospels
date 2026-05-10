@@ -2101,10 +2101,11 @@ LANDING_PAGE = """<!DOCTYPE html>
       if (!allSections || allSections.length < 2) return;
       // Concatenate the cleaned text of every section. Each section's text
       // already had its metadata header stripped server-side at /api/clean.
-      // (The separator below uses doubly-escaped backslashes so that Python
-      // does NOT turn it into real newlines when parsing this triple-quoted
-      // string — JS receives the proper newline escape sequence.)
-      const combined = allSections.map(s => s.text.trim()).filter(Boolean).join('\\n\\n');
+      // Use fromCharCode(10) for the paragraph break so we never put a
+      // backslash escape inside a quoted string — the surrounding Python
+      // triple-quoted literal eats those and breaks JS parsing.
+      const NL2 = String.fromCharCode(10) + String.fromCharCode(10);
+      const combined = allSections.map(s => s.text.trim()).filter(Boolean).join(NL2);
       const btn = document.getElementById('approve-all-btn');
       const totalWords = allSections.reduce((sum, x) => sum + (x.word_count || 0), 0);
       const totalMin = allSections.reduce((sum, x) => sum + (x.estimated_minutes || 0), 0);

@@ -1,4 +1,7 @@
-"""Modal deployment for AI Bible Gospels unified web app."""
+"""Modal deployment for AI Bible Gospels unified web app.
+
+Deploy: ai-bible-gospels-2026-05-10-v4-fromCharCode
+"""
 import modal
 
 app = modal.App("ai-bible-gospels")
