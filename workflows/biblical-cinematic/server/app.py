@@ -409,6 +409,15 @@ async def api_clean(request: Request, req: CleanRequest):
     sections: list[Section] = []
     for i, section_words in enumerate(raw_sections):
         formatted = format_section(section_words, i + 1)
+        # Strip UI-only metadata header so the textarea + downstream chunker
+        # see pure scripture only. Stats live in the dashboard's stats-bar.
+        formatted = re.sub(r'^\s*={3,}\s*SECTION\s+\d+\s*={3,}\s*$', '',
+                           formatted, flags=re.MULTILINE)
+        formatted = re.sub(r'^\s*Words:\s*\d+.*\|.*Est\.?\s*Video:.*\|.*Scenes?:\s*\d+\s*$',
+                           '', formatted, flags=re.MULTILINE)
+        formatted = re.sub(r'^\s*Ready for Biblical Video Generator\s*$', '',
+                           formatted, flags=re.MULTILINE)
+        formatted = re.sub(r'\n\s*\n\s*\n+', '\n\n', formatted).strip()
         # Prepend cinematic intro to the first section only
         if i == 0 and cinematic_intro:
             formatted = cinematic_intro + "\n\n" + formatted.strip()
@@ -1086,15 +1095,26 @@ LANDING_PAGE = """<!DOCTYPE html>
           <p class="text-xs text-gray-500 mt-2">Used by ElevenLabs for narration. Applies to fresh renders and fix-scene re-renders.</p>
         </div>
 
-        <div class="flex items-center justify-between mt-4">
+        <div class="flex items-center justify-between mt-4 flex-wrap gap-3">
           <p class="text-xs text-gray-500">✏️ You can edit the text above before approving.</p>
-          <button
-            id="approve-btn"
-            onclick="approveText()"
-            class="bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-3 rounded-xl transition-colors duration-200 flex items-center gap-2"
-          >
-            <span>✓ Generate Scenes</span>
-          </button>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button
+              id="approve-all-btn"
+              onclick="approveAllText()"
+              class="bg-amber-600 hover:bg-amber-500 text-black font-semibold px-6 py-3 rounded-xl transition-colors duration-200 hidden items-center gap-2"
+              title="Render all sections as one combined video. Costs proportionally more than a single section."
+            >
+              <span>🎬 Generate ALL Sections</span>
+              <span id="approve-all-stats" class="text-xs font-normal opacity-80"></span>
+            </button>
+            <button
+              id="approve-btn"
+              onclick="approveText()"
+              class="bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-3 rounded-xl transition-colors duration-200 flex items-center gap-2"
+            >
+              <span>✓ Generate Scenes</span>
+            </button>
+          </div>
         </div>
         <div id="approve-error" class="mt-3 text-red-400 text-sm hidden"></div>
       </div>
@@ -1997,21 +2017,43 @@ LANDING_PAGE = """<!DOCTYPE html>
             : '✓ Generate Scenes';
         }
       }
+      // Show "Generate ALL Sections" button only when there's more than one
+      // section, and populate it with total word/duration estimates so the
+      // user can see what they're committing to.
+      const approveAllBtn = document.getElementById('approve-all-btn');
+      if (approveAllBtn) {
+        if (allSections.length > 1) {
+          approveAllBtn.classList.remove('hidden');
+          approveAllBtn.classList.add('inline-flex');
+          const totalWords = allSections.reduce((sum, x) => sum + (x.word_count || 0), 0);
+          const totalMin = allSections.reduce((sum, x) => sum + (x.estimated_minutes || 0), 0);
+          const statsSpan = document.getElementById('approve-all-stats');
+          if (statsSpan) {
+            statsSpan.textContent = `(~${totalWords.toLocaleString()} words · ~${totalMin.toFixed(1)} min)`;
+          }
+        } else {
+          approveAllBtn.classList.add('hidden');
+          approveAllBtn.classList.remove('inline-flex');
+        }
+      }
     }
 
     // ── Step 2: Approve ───────────────────────────────────────────────────────
-    async function approveText() {
-      const approvedText = document.getElementById('cleaned-text').value.trim();
-      if (!approvedText) {
+    async function _submitForRender(text, btn, restoreLabel) {
+      if (!text) {
         showError('approve-error', 'Text cannot be empty.');
         return;
       }
-
-      const btn = document.getElementById('approve-btn');
       const model = document.querySelector('input[name="kling-model"]:checked')?.value || 'v3.0';
       const aspect_ratio = document.querySelector('input[name="aspect-ratio"]:checked')?.value || '16:9';
+      const originalHtml = btn.innerHTML;
       btn.innerHTML = '<span class="spinner"></span><span>Claude AI generating scenes...</span>';
       btn.disabled = true;
+      // Disable the sibling button too so the user can't double-submit.
+      const sibling = btn.id === 'approve-btn'
+        ? document.getElementById('approve-all-btn')
+        : document.getElementById('approve-btn');
+      if (sibling) sibling.disabled = true;
       hideError('approve-error');
 
       try {
@@ -2019,7 +2061,7 @@ LANDING_PAGE = """<!DOCTYPE html>
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            text: approvedText,
+            text: text,
             model: model,
             aspect_ratio: aspect_ratio,
             book: document.getElementById('bible-book')?.value || '',
@@ -2040,9 +2082,31 @@ LANDING_PAGE = """<!DOCTYPE html>
       } catch (e) {
         showError('approve-error', e.message);
       } finally {
-        btn.innerHTML = '<span>✓ Generate Scenes</span>';
+        btn.innerHTML = restoreLabel || originalHtml;
         btn.disabled = false;
+        if (sibling) sibling.disabled = false;
       }
+    }
+
+    async function approveText() {
+      const approvedText = document.getElementById('cleaned-text').value.trim();
+      const btn = document.getElementById('approve-btn');
+      const label = allSections.length > 1
+        ? `<span>✓ Generate Scenes from Section ${activeSectionIndex + 1}</span>`
+        : '<span>✓ Generate Scenes</span>';
+      await _submitForRender(approvedText, btn, label);
+    }
+
+    async function approveAllText() {
+      if (!allSections || allSections.length < 2) return;
+      // Concatenate the cleaned text of every section. Each section's text
+      // already had its metadata header stripped server-side at /api/clean.
+      const combined = allSections.map(s => s.text.trim()).filter(Boolean).join('\n\n');
+      const btn = document.getElementById('approve-all-btn');
+      const totalWords = allSections.reduce((sum, x) => sum + (x.word_count || 0), 0);
+      const totalMin = allSections.reduce((sum, x) => sum + (x.estimated_minutes || 0), 0);
+      const label = `<span>🎬 Generate ALL Sections</span><span class="text-xs font-normal opacity-80">(~${totalWords.toLocaleString()} words · ~${totalMin.toFixed(1)} min)</span>`;
+      await _submitForRender(combined, btn, label);
     }
 
     function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
