@@ -1986,6 +1986,17 @@ LANDING_PAGE = """<!DOCTYPE html>
         <span>🎬 ~${s.estimated_scenes} scenes</span>
         ${allSections.length > 1 ? `<span class="ml-auto text-amber-500">Section ${index + 1} of ${allSections.length}</span>` : ''}
       `;
+      // Make the Approve button name the active section so it's never ambiguous
+      // which slice of text is about to be rendered.
+      const approveBtn = document.getElementById('approve-btn');
+      if (approveBtn) {
+        const span = approveBtn.querySelector('span');
+        if (span) {
+          span.textContent = allSections.length > 1
+            ? `✓ Generate Scenes from Section ${index + 1}`
+            : '✓ Generate Scenes';
+        }
+      }
     }
 
     // ── Step 2: Approve ───────────────────────────────────────────────────────

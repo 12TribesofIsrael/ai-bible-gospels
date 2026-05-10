@@ -301,12 +301,39 @@ class BiblicalFixScenesInput(BaseModel):
 # ---------------------------------------------------------------------------
 # Text splitting
 # ---------------------------------------------------------------------------
+_SECTION_METADATA_PATTERNS = [
+    re.compile(r'^\s*={3,}\s*SECTION\s+\d+\s*={3,}\s*$', re.IGNORECASE),
+    re.compile(r'^\s*Words:\s*\d+.*\|.*Est\.?\s*Video:.*\|.*Scenes?:\s*\d+\s*$', re.IGNORECASE),
+    re.compile(r'^\s*Ready for Biblical Video Generator\s*$', re.IGNORECASE),
+]
+
+
+def _strip_section_metadata(text: str) -> str:
+    """Remove UI-injected section headers / stats / status lines so they
+    can't leak into scripture narration.
+
+    Defensive: catches metadata regardless of which client path injected it.
+    Patterns matched (one per line):
+      - === SECTION N ===
+      - Words: N | Est. Video: N min | Scenes: N
+      - Ready for Biblical Video Generator
+    """
+    if not text:
+        return text
+    out = []
+    for line in text.splitlines():
+        if any(p.match(line) for p in _SECTION_METADATA_PATTERNS):
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
 def split_scripture_into_scenes(text, target_words_per_scene=30):
     """Split cleaned scripture into narration chunks at sentence boundaries.
 
     target_words_per_scene: aim for this many words per chunk to match Kling clip duration.
     """
-    text = text.strip()
+    text = _strip_section_metadata(text).strip()
     words = text.split()
     total_words = len(words)
 
