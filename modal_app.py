@@ -40,7 +40,10 @@ image = (
 
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("ai-bible-gospels")],
+    secrets=[
+        modal.Secret.from_name("ai-bible-gospels"),
+        modal.Secret.from_name("ai-bible-gospels-stripe"),
+    ],
     volumes={"/data": volume},
     scaledown_window=300,
     timeout=1800,
