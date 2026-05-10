@@ -9,6 +9,11 @@ modal-secrets.env
 output/
 !output/.gitkeep
 
+# Runtime state — rewritten by the app on every render, never source of truth
+workflows/biblical-cinematic/server/pipeline_state.json
+workflows/biblical-cinematic/server/usage_log.json
+workflows/custom-script/custom_render_history.json
+
 # Python
 __pycache__/
 *.py[cod]
